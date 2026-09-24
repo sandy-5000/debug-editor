@@ -1,0 +1,369 @@
+:root,
+[data-theme='dark'] {
+  --bg: #1e1e1e;
+  --chrome: #252526;
+  --border: #3c3c3c;
+  --text: #cccccc;
+  --text-h: #ffffff;
+  --muted: #9d9d9d;
+  --input-bg: #1e1e1e;
+  --hover: #3c3c3c;
+  --accent: #0e639c;
+  --link: #79b8ff;
+  --status: #9cdcfe;
+  --error: #f48771;
+  --backdrop: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='light'] {
+  --bg: #ffffff;
+  --chrome: #f3f3f3;
+  --border: #d4d4d4;
+  --text: #333333;
+  --text-h: #111111;
+  --muted: #6b6b6b;
+  --input-bg: #ffffff;
+  --hover: #e5e5e5;
+  --accent: #0e639c;
+  --link: #005fb8;
+  --status: #0e639c;
+  --error: #c42b1c;
+  --backdrop: rgba(0, 0, 0, 0.28);
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.page {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.editor {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.options-strip {
+  box-sizing: border-box;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 50px;
+  flex-shrink: 0;
+  height: 100%;
+  padding: 8px 0;
+  background: var(--chrome);
+  border-left: 1px solid var(--border);
+}
+
+.strip-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.strip-divider {
+  width: 22px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+.strip-button:hover,
+.strip-button.active {
+  color: var(--text-h);
+  background: var(--hover);
+}
+
+.panel-backdrop {
+  position: fixed;
+  inset: 0 50px 0 0;
+  z-index: 10;
+  background: var(--backdrop);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.panel-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.side-panel {
+  position: fixed;
+  top: 0;
+  right: 50px;
+  z-index: 11;
+  box-sizing: border-box;
+  width: min(320px, calc(100% - 50px));
+  height: 100%;
+  padding: 20px 20px 24px;
+  overflow: auto;
+  color: var(--text);
+  background: var(--chrome);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+.side-panel.open {
+  transform: translateX(0);
+}
+
+.side-panel h2 {
+  margin: 0 36px 12px 0;
+  font: 600 18px/1.3 system-ui, sans-serif;
+  color: var(--text-h);
+}
+
+.side-panel p,
+.side-panel li {
+  margin: 0;
+  font: 14px/1.5 system-ui, sans-serif;
+}
+
+.panel-links {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.panel-links a {
+  color: var(--link);
+}
+
+.panel-close {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.panel-close:hover {
+  color: var(--text-h);
+  background: var(--hover);
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.template-item {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.template-apply {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: inherit;
+  background: var(--input-bg);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.template-apply:disabled {
+  opacity: 0.7;
+}
+
+.template-name {
+  font: 600 14px/1.3 system-ui, sans-serif;
+  color: var(--text-h);
+}
+
+.template-url {
+  overflow: hidden;
+  font: 12px/1.4 system-ui, sans-serif;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-delete,
+.template-add,
+.theme-button,
+.confirm-button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.template-delete {
+  width: 36px;
+  flex-shrink: 0;
+  background: var(--input-bg);
+}
+
+.template-add,
+.confirm-button.replace {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.template-form label,
+.theme-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 13px/1.3 system-ui, sans-serif;
+}
+
+.template-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-h);
+  background: var(--input-bg);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.template-status {
+  color: var(--status);
+}
+
+.template-status.error {
+  color: var(--error);
+}
+
+.settings-copy,
+.theme-label {
+  margin: 16px 0 8px;
+}
+
+.settings-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-h);
+  background: var(--input-bg);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.theme-options {
+  display: flex;
+  gap: 8px;
+}
+
+.theme-button {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+}
+
+.theme-button.active {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: var(--backdrop);
+}
+
+.confirm-dialog {
+  box-sizing: border-box;
+  width: min(360px, 100%);
+  padding: 20px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 10px;
+  font: 600 18px/1.3 system-ui, sans-serif;
+  color: var(--text-h);
+}
+
+.confirm-dialog p {
+  margin: 0 0 16px;
+  font: 14px/1.5 system-ui, sans-serif;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.confirm-button {
+  flex: 1;
+  min-height: 40px;
+}
+
+.confirm-button.cancel {
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+}
