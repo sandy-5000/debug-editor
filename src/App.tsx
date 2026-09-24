@@ -3,6 +3,7 @@ import type { IconType } from 'react-icons'
 import {
   FiChevronDown,
   FiChevronUp,
+  FiCopy,
   FiFolder,
   FiHelpCircle,
   FiLayers,
@@ -306,6 +307,7 @@ export default function App() {
   const [running, setRunning] = useState(false)
   const [runnerReady, setRunnerReady] = useState(false)
   const [runnerKey, setRunnerKey] = useState(0)
+  const [copyStatus, setCopyStatus] = useState<string | null>(null)
   const templates = [EXAMPLE_TEMPLATE, ...userTemplates]
   const embedUrl = useMemo(
     () => buildEmbedUrl(language, theme === 'dark' ? 'dark' : 'light'),
@@ -580,6 +582,19 @@ export default function App() {
     pendingRunRef.current = false
     runCode()
   }, [runnerReady, runCode])
+
+  const copyEditorCode = async () => {
+    const code = editorRef.current?.getValue() ?? ''
+
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopyStatus('Code copied')
+    } catch {
+      setCopyStatus('Could not copy code')
+    }
+
+    window.setTimeout(() => setCopyStatus(null), 2000)
+  }
 
   const toggleOutput = () => {
     if (outputOpen) {
@@ -861,6 +876,14 @@ export default function App() {
           onClick={toggleOutput}
         >
           <FiTerminal size={20} />
+        </button>
+        <button
+          type="button"
+          className={`strip-button${copyStatus === 'Code copied' ? ' active' : ''}`}
+          aria-label={copyStatus ?? 'Copy code'}
+          onClick={copyEditorCode}
+        >
+          <FiCopy size={20} />
         </button>
         <div className="strip-divider" />
         {PANEL_ITEMS.map(({ id, label, icon: Icon }) => (

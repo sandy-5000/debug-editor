@@ -13,6 +13,7 @@
   --status: #9cdcfe;
   --error: #f48771;
   --backdrop: rgba(0, 0, 0, 0.45);
+  --strip-width: 72px;
 }
 
 [data-theme='light'] {
@@ -29,6 +30,7 @@
   --status: #0e639c;
   --error: #c42b1c;
   --backdrop: rgba(0, 0, 0, 0.28);
+  --strip-width: 72px;
 }
 
 html,
@@ -60,11 +62,11 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: 50px;
+  gap: 8px;
+  width: var(--strip-width);
   flex-shrink: 0;
   height: 100%;
-  padding: 8px 0;
+  padding: 10px 0;
   background: var(--chrome);
   border-left: 1px solid var(--border);
 }
@@ -72,11 +74,11 @@ body,
 .strip-button {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 56px;
+  height: 56px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text);
   background: transparent;
   cursor: pointer;
@@ -85,7 +87,7 @@ body,
 }
 
 .strip-divider {
-  width: 22px;
+  width: 32px;
   height: 1px;
   margin: 4px 0;
   background: var(--border);
@@ -99,7 +101,7 @@ body,
 
 .panel-backdrop {
   position: fixed;
-  inset: 0 50px 0 0;
+  inset: 0 var(--strip-width) 0 0;
   z-index: 10;
   background: var(--backdrop);
   opacity: 0;
@@ -115,10 +117,10 @@ body,
 .side-panel {
   position: fixed;
   top: 0;
-  right: 50px;
+  right: var(--strip-width);
   z-index: 11;
   box-sizing: border-box;
-  width: min(320px, calc(100% - 50px));
+  width: min(320px, calc(100% - var(--strip-width)));
   height: 100%;
   padding: 20px 20px 24px;
   overflow: auto;
@@ -386,7 +388,7 @@ body,
 
 .output-backdrop {
   position: fixed;
-  inset: 0 50px 0 0;
+  inset: 0 var(--strip-width) 0 0;
   z-index: 13;
   background: var(--backdrop);
   opacity: 0;
@@ -402,13 +404,13 @@ body,
 .output-panel {
   position: fixed;
   top: 0;
-  right: 50px;
+  right: var(--strip-width);
   z-index: 14;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: min(400px, calc(100% - 50px));
+  width: min(480px, calc(100% - var(--strip-width)));
   height: 100%;
   padding: 20px 20px 24px;
   overflow: auto;
