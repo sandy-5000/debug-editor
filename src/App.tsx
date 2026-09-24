@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { IconType } from 'react-icons'
 import {
   FiChevronDown,
@@ -7,8 +7,10 @@ import {
   FiHelpCircle,
   FiLayers,
   FiLink,
+  FiPlay,
   FiPlus,
   FiSettings,
+  FiTerminal,
   FiTrash2,
   FiX,
 } from 'react-icons/fi'
@@ -38,6 +40,15 @@ import {
   saveUserTemplates,
   type Template,
 } from './templates.ts'
+import {
+  buildEmbedUrl,
+  formatRunResult,
+  isRunnableLanguage,
+  oneCompilerFileName,
+  oneCompilerLanguage,
+  type OneCompilerCodePayload,
+} from './onecompiler.ts'
+import { prepareCppCodeForRun } from './cppRunner.ts'
 
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
@@ -242,6 +253,11 @@ function PanelContent({
               C++ reference
             </a>
           </li>
+          <li>
+            <a href="https://onecompiler.com/apis/embed-editor" target="_blank" rel="noreferrer">
+              OneCompiler embed API
+            </a>
+          </li>
         </ul>
       </>
     )
@@ -260,8 +276,8 @@ function PanelContent({
     <>
       <h2>Help</h2>
       <p>
-        Use the up and down arrows to move the cursor. Templates replace the
-        editor after you confirm. Your code is saved in this browser.
+        Use the up and down arrows to move the cursor. Open Output to run code
+        and see results. Templates replace the editor after you confirm.
       </p>
     </>
   )
@@ -270,8 +286,13 @@ function PanelContent({
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const runnerRef = useRef<HTMLIFrameElement>(null)
   const repeatRef = useRef<number | null>(null)
   const delayRef = useRef<number | null>(null)
+  const awaitingRunRef = useRef(false)
+  const pendingRunRef = useRef(false)
+  const runTriggerTimeoutRef = useRef<number | null>(null)
+  const runTimeoutRef = useRef<number | null>(null)
   const [openPanel, setOpenPanel] = useState<PanelId | null>(null)
   const [userTemplates, setUserTemplates] = useState<Template[]>(loadUserTemplates)
   const [applyingId, setApplyingId] = useState<string | null>(null)
@@ -279,7 +300,17 @@ export default function App() {
   const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null)
   const [theme, setTheme] = useState<EditorTheme>(loadTheme)
   const [language, setLanguage] = useState<EditorLanguage>(loadLanguage)
+  const [outputOpen, setOutputOpen] = useState(false)
+  const [outputText, setOutputText] = useState('Run your code to see output here.')
+  const [stdin, setStdin] = useState('')
+  const [running, setRunning] = useState(false)
+  const [runnerReady, setRunnerReady] = useState(false)
+  const [runnerKey, setRunnerKey] = useState(0)
   const templates = [EXAMPLE_TEMPLATE, ...userTemplates]
+  const embedUrl = useMemo(
+    () => buildEmbedUrl(language, theme === 'dark' ? 'dark' : 'light'),
+    [language, theme],
+  )
 
   useEffect(() => {
     const container = containerRef.current
@@ -386,17 +417,79 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!openPanel) {
-      return
+  const clearRunTimers = () => {
+    if (runTriggerTimeoutRef.current !== null) {
+      window.clearTimeout(runTriggerTimeoutRef.current)
+      runTriggerTimeoutRef.current = null
     }
 
+    if (runTimeoutRef.current !== null) {
+      window.clearTimeout(runTimeoutRef.current)
+      runTimeoutRef.current = null
+    }
+  }
+
+  const cancelRun = useCallback(() => {
+    clearRunTimers()
+    awaitingRunRef.current = false
+    pendingRunRef.current = false
+    setRunning(false)
+    setOutputText('Run cancelled.')
+    setRunnerReady(false)
+    setRunnerKey((key) => key + 1)
+  }, [])
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://onecompiler.com') {
+        return
+      }
+
+      const data = event.data as OneCompilerCodePayload | undefined
+      if (!data || typeof data !== 'object') {
+        return
+      }
+
+      if (
+        awaitingRunRef.current &&
+        data.result !== undefined &&
+        data.result !== null
+      ) {
+        clearRunTimers()
+        setOutputText(formatRunResult(data.result) || 'Program finished with no output.')
+        setRunning(false)
+        awaitingRunRef.current = false
+      }
+    }
+
+    window.addEventListener('message', onMessage)
+    return () => {
+      window.removeEventListener('message', onMessage)
+    }
+  }, [])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (pendingTemplate) {
-          setPendingTemplate(null)
-          return
-        }
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (pendingTemplate) {
+        setPendingTemplate(null)
+        return
+      }
+
+      if (outputOpen && running) {
+        cancelRun()
+        return
+      }
+
+      if (outputOpen) {
+        setOutputOpen(false)
+        return
+      }
+
+      if (openPanel) {
         setOpenPanel(null)
       }
     }
@@ -405,7 +498,87 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [openPanel, pendingTemplate])
+  }, [openPanel, pendingTemplate, outputOpen, running, cancelRun])
+
+  const runCode = useCallback(() => {
+    setOutputOpen(true)
+
+    if (!isRunnableLanguage(language)) {
+      setOutputText('This language cannot be run. Switch to C++, Python, Java, and similar in Settings.')
+      setRunning(false)
+      return
+    }
+
+    const ocLanguage = oneCompilerLanguage(language)
+    const editor = editorRef.current
+    const frame = runnerRef.current
+
+    if (!ocLanguage || !editor || !frame?.contentWindow) {
+      setOutputText('Runner is not ready yet. Try again in a moment.')
+      return
+    }
+
+    if (!runnerReady) {
+      pendingRunRef.current = true
+      setOutputText('Loading runner...')
+      setRunning(true)
+      return
+    }
+
+    clearRunTimers()
+    setRunning(true)
+    setOutputText('Running...')
+    awaitingRunRef.current = true
+
+    const source = editor.getValue()
+    const content = language === 'cpp' ? prepareCppCodeForRun(source, stdin) : source
+
+    frame.contentWindow.postMessage(
+      {
+        eventType: 'populateCode',
+        language: ocLanguage,
+        files: [
+          {
+            name: oneCompilerFileName(language),
+            content,
+          },
+        ],
+      },
+      '*',
+    )
+
+    runTriggerTimeoutRef.current = window.setTimeout(() => {
+      runTriggerTimeoutRef.current = null
+      frame.contentWindow?.postMessage({ eventType: 'triggerRun' }, '*')
+    }, 350)
+
+    runTimeoutRef.current = window.setTimeout(() => {
+      runTimeoutRef.current = null
+      if (!awaitingRunRef.current) {
+        return
+      }
+      setRunning(false)
+      awaitingRunRef.current = false
+      setOutputText((current) =>
+        current === 'Running...'
+          ? 'No output received. The program may still be running, or this language needs more time.'
+          : current,
+      )
+    }, 30000)
+  }, [language, runnerReady, stdin])
+
+  useEffect(() => {
+    setRunnerReady(false)
+    pendingRunRef.current = false
+  }, [embedUrl])
+
+  useEffect(() => {
+    if (!runnerReady || !pendingRunRef.current) {
+      return
+    }
+    pendingRunRef.current = false
+    runCode()
+  }, [runnerReady, runCode])
 
   const togglePanel = (id: PanelId) => {
     setOpenPanel((current) => (current === id ? null : id))
@@ -487,6 +660,14 @@ export default function App() {
 
   return (
     <div className="page" data-theme={theme}>
+      <iframe
+        key={runnerKey}
+        ref={runnerRef}
+        title="OneCompiler runner"
+        className="oc-runner"
+        src={embedUrl}
+        onLoad={() => setRunnerReady(true)}
+      />
       <div ref={containerRef} className="editor" />
 
       <div
@@ -529,6 +710,68 @@ export default function App() {
                 onLanguageChange={setLanguage}
               />
             )}
+          </>
+        ) : null}
+      </aside>
+
+      <div
+        className={`output-backdrop${outputOpen ? ' open' : ''}`}
+        onClick={() => setOutputOpen(false)}
+      />
+
+      <aside
+        className={`output-panel${outputOpen ? ' open' : ''}`}
+        role="dialog"
+        aria-modal={outputOpen ? true : undefined}
+        aria-hidden={!outputOpen}
+        aria-labelledby="output-title"
+      >
+        {outputOpen ? (
+          <>
+            <button
+              type="button"
+              className="panel-close"
+              onClick={() => setOutputOpen(false)}
+              aria-label="Close output"
+            >
+              <FiX size={18} />
+            </button>
+            <h2 id="output-title">Output</h2>
+            <p className="output-hint">
+              Code runs on OneCompiler in the background. Standard input is injected for C++ only
+              (your <code>main</code> is renamed to <code>user_main</code>).
+            </p>
+            <label className="theme-label">
+              Standard input (C++ only)
+              <textarea
+                className="output-stdin"
+                value={stdin}
+                disabled={language !== 'cpp'}
+                onChange={(event) => setStdin(event.target.value)}
+                placeholder={
+                  language === 'cpp'
+                    ? 'Text fed to cin (newlines and spaces preserved)'
+                    : 'Not used for this language'
+                }
+                rows={9}
+              />
+            </label>
+            <pre className="output-pre">{outputText}</pre>
+            <div className="confirm-actions output-actions">
+              <button type="button" className="confirm-button cancel" onClick={() => setOutputOpen(false)}>
+                Close
+              </button>
+              {running ? (
+                <button type="button" className="confirm-button cancel-run" onClick={cancelRun}>
+                  Cancel run
+                </button>
+              ) : (
+                <button type="button" className="confirm-button replace" onClick={runCode}>
+                  <FiPlay size={16} />
+                  Run
+                </button>
+              )}
+            </div>
           </>
         ) : null}
       </aside>
@@ -591,6 +834,18 @@ export default function App() {
           onContextMenu={(event) => event.preventDefault()}
         >
           <FiChevronDown size={22} />
+        </button>
+        <div className="strip-divider" />
+        <button
+          type="button"
+          className={`strip-button${outputOpen ? ' active' : ''}`}
+          aria-label="Output"
+          aria-expanded={outputOpen}
+          onClick={() => {
+            setOutputOpen(true)
+          }}
+        >
+          <FiTerminal size={20} />
         </button>
         <div className="strip-divider" />
         {PANEL_ITEMS.map(({ id, label, icon: Icon }) => (
