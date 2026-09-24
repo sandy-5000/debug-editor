@@ -267,7 +267,7 @@ function PanelContent({
     return (
       <>
         <h2>Files</h2>
-        <p>No project files are loaded yet.</p>
+        <p>File system support will be added in a future update.</p>
       </>
     )
   }
@@ -501,6 +501,7 @@ export default function App() {
   }, [openPanel, pendingTemplate, outputOpen, running, cancelRun])
 
   const runCode = useCallback(() => {
+    setOpenPanel(null)
     setOutputOpen(true)
 
     if (!isRunnableLanguage(language)) {
@@ -580,8 +581,24 @@ export default function App() {
     runCode()
   }, [runnerReady, runCode])
 
+  const toggleOutput = () => {
+    if (outputOpen) {
+      setOutputOpen(false)
+      return
+    }
+
+    setOpenPanel(null)
+    setOutputOpen(true)
+  }
+
   const togglePanel = (id: PanelId) => {
-    setOpenPanel((current) => (current === id ? null : id))
+    if (openPanel === id) {
+      setOpenPanel(null)
+      return
+    }
+
+    setOutputOpen(false)
+    setOpenPanel(id)
   }
 
   const addTemplate = (name: string, url: string) => {
@@ -841,9 +858,7 @@ export default function App() {
           className={`strip-button${outputOpen ? ' active' : ''}`}
           aria-label="Output"
           aria-expanded={outputOpen}
-          onClick={() => {
-            setOutputOpen(true)
-          }}
+          onClick={toggleOutput}
         >
           <FiTerminal size={20} />
         </button>
