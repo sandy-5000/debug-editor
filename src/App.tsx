@@ -11,7 +11,6 @@ import {
 import type { IconType } from 'react-icons'
 import {
   FiAlertCircle,
-  FiAlignLeft,
   FiCheckCircle,
   FiChevronDown,
   FiChevronLeft,
@@ -1419,15 +1418,6 @@ export default function App() {
           onClick={copyEditorCode}
         >
           <FiCopy size={20} />
-        </button>
-        <button
-          type="button"
-          className="strip-button strip-button-format"
-          aria-label="Format code"
-          onClick={formatEditorCode}
-          hidden
-        >
-          <FiAlignLeft size={20} />
         </button>
         <div className="strip-divider" />
         {PANEL_ITEMS.map(({ id, label, icon: Icon }) => (
