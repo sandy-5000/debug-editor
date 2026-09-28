@@ -26,8 +26,10 @@ const LANGUAGE_KEY = 'debug-editor-language'
 const FONT_SIZE_KEY = 'debug-editor-font-size'
 const ARROW_KEYS_KEY = 'debug-editor-arrow-keys'
 const ARROW_KEYS_PLACEMENT_KEY = 'debug-editor-arrow-keys-placement'
+const ARROW_KEYS_STYLE_KEY = 'debug-editor-arrow-keys-style'
 
 export type ArrowKeysPlacement = 'bottom' | 'top'
+export type ArrowKeysStyle = 'dpad' | 'joystick'
 
 export const DEFAULT_FONT_SIZE = 16
 export const MIN_FONT_SIZE = 12
@@ -154,4 +156,12 @@ export function loadArrowKeysPlacement(): ArrowKeysPlacement {
 
 export function saveArrowKeysPlacement(placement: ArrowKeysPlacement) {
   localStorage.setItem(ARROW_KEYS_PLACEMENT_KEY, placement)
+}
+
+export function loadArrowKeysStyle(): ArrowKeysStyle {
+  return localStorage.getItem(ARROW_KEYS_STYLE_KEY) === 'joystick' ? 'joystick' : 'dpad'
+}
+
+export function saveArrowKeysStyle(style: ArrowKeysStyle) {
+  localStorage.setItem(ARROW_KEYS_STYLE_KEY, style)
 }

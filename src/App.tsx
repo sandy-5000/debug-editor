@@ -38,9 +38,11 @@ import cssWorker from 'monaco-editor/language/css/css.worker?worker'
 import htmlWorker from 'monaco-editor/language/html/html.worker?worker'
 import jsonWorker from 'monaco-editor/language/json/json.worker?worker'
 import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
+import { CursorJoystick } from './CursorJoystick.tsx'
 import {
   LANGUAGE_OPTIONS,
   loadArrowKeysPlacement,
+  loadArrowKeysStyle,
   loadArrowKeysVisible,
   loadCode,
   loadFontSize,
@@ -50,8 +52,10 @@ import {
   MIN_FONT_SIZE,
   monacoTheme,
   saveArrowKeysPlacement,
+  saveArrowKeysStyle,
   saveArrowKeysVisible,
   type ArrowKeysPlacement,
+  type ArrowKeysStyle,
   saveCode,
   saveFontSize,
   saveLanguage,
@@ -236,6 +240,8 @@ function PanelContent({
   onArrowKeysVisibleChange,
   arrowKeysPlacement,
   onArrowKeysPlacementChange,
+  arrowKeysStyle,
+  onArrowKeysStyleChange,
   onRequestClearCode,
 }: {
   panel: PanelId
@@ -249,6 +255,8 @@ function PanelContent({
   onArrowKeysVisibleChange: (visible: boolean) => void
   arrowKeysPlacement: ArrowKeysPlacement
   onArrowKeysPlacementChange: (placement: ArrowKeysPlacement) => void
+  arrowKeysStyle: ArrowKeysStyle
+  onArrowKeysStyleChange: (style: ArrowKeysStyle) => void
   onRequestClearCode: () => void
 }) {
   if (panel === 'settings') {
@@ -350,25 +358,53 @@ function PanelContent({
             <span className="settings-row-label">On-screen arrow keys</span>
             <p className="settings-row-hint">
               {arrowKeysVisible
-                ? `Pad on the ${arrowKeysPlacement} right, over the minimap.`
+                ? `${arrowKeysStyle === 'joystick' ? 'Joystick' : 'Arrow pad'} on the ${arrowKeysPlacement} right, over the minimap.`
                 : 'Off—use a keyboard or turn on for touch.'}
             </p>
             <div className="settings-row-options settings-arrow-controls">
-              <button
-                type="button"
-                className={`settings-visibility-toggle${arrowKeysVisible ? ' is-on' : ''}`}
-                role="switch"
-                aria-checked={arrowKeysVisible}
-                aria-label={arrowKeysVisible ? 'Arrow keys visible' : 'Arrow keys hidden'}
-                onClick={() => onArrowKeysVisibleChange(!arrowKeysVisible)}
-              >
-                <span className="settings-visibility-track">
-                  <span className="settings-visibility-thumb" />
-                </span>
-                <span className="settings-visibility-label">
-                  {arrowKeysVisible ? 'On' : 'Off'}
-                </span>
-              </button>
+              <div className="settings-arrow-controls-row">
+                <button
+                  type="button"
+                  className={`settings-visibility-toggle${arrowKeysVisible ? ' is-on' : ''}`}
+                  role="switch"
+                  aria-checked={arrowKeysVisible}
+                  aria-label={arrowKeysVisible ? 'Arrow keys visible' : 'Arrow keys hidden'}
+                  onClick={() => onArrowKeysVisibleChange(!arrowKeysVisible)}
+                >
+                  <span className="settings-visibility-track">
+                    <span className="settings-visibility-thumb" />
+                  </span>
+                  <span className="settings-visibility-label">
+                    {arrowKeysVisible ? 'On' : 'Off'}
+                  </span>
+                </button>
+                <div
+                  className={`settings-placement-toggle${arrowKeysVisible ? '' : ' is-disabled'}`}
+                  role="group"
+                  aria-label="On-screen control style"
+                >
+                  <button
+                    type="button"
+                    className={`settings-placement-option${arrowKeysStyle === 'dpad' ? ' active' : ''}`}
+                    disabled={!arrowKeysVisible}
+                    aria-label="Arrow pad"
+                    aria-pressed={arrowKeysStyle === 'dpad'}
+                    onClick={() => onArrowKeysStyleChange('dpad')}
+                  >
+                    Pad
+                  </button>
+                  <button
+                    type="button"
+                    className={`settings-placement-option${arrowKeysStyle === 'joystick' ? ' active' : ''}`}
+                    disabled={!arrowKeysVisible}
+                    aria-label="Joystick"
+                    aria-pressed={arrowKeysStyle === 'joystick'}
+                    onClick={() => onArrowKeysStyleChange('joystick')}
+                  >
+                    Joystick
+                  </button>
+                </div>
+              </div>
               <div
                 className={`settings-placement-toggle${arrowKeysVisible ? '' : ' is-disabled'}`}
                 role="group"
@@ -451,7 +487,8 @@ function PanelContent({
     <>
       <h2>Help</h2>
       <p>
-        Use the on-screen arrow pad on the editor minimap or a keyboard to move the cursor. Format
+        Use the on-screen pad or joystick (Settings) on the editor minimap, or a keyboard, to move
+        the cursor. Format
         code from the sidebar or with Shift+Alt+F (Option+Shift+F on Mac). Open Output to run code
         and see results. Templates replace the editor after you confirm.
       </p>
@@ -486,6 +523,7 @@ export default function App() {
   const [fontSize, setFontSize] = useState(loadFontSize)
   const [arrowKeysVisible, setArrowKeysVisible] = useState(loadArrowKeysVisible)
   const [arrowKeysPlacement, setArrowKeysPlacement] = useState(loadArrowKeysPlacement)
+  const [arrowKeysStyle, setArrowKeysStyle] = useState(loadArrowKeysStyle)
   const [outputOpen, setOutputOpen] = useState(false)
   const [outputText, setOutputText] = useState('Run your code to see output here.')
   const [stdin, setStdin] = useState('')
@@ -667,6 +705,10 @@ export default function App() {
   useEffect(() => {
     saveArrowKeysPlacement(arrowKeysPlacement)
   }, [arrowKeysPlacement])
+
+  useEffect(() => {
+    saveArrowKeysStyle(arrowKeysStyle)
+  }, [arrowKeysStyle])
 
   const focusEditor = () => {
     editorRef.current?.focus()
@@ -1128,44 +1170,48 @@ export default function App() {
             className={`cursor-pad cursor-pad-${arrowKeysPlacement}`}
             aria-label="Cursor keys"
           >
-            <div className="cursor-pad-grid">
-              <button
-                type="button"
-                className="cursor-pad-button cursor-pad-up"
-                tabIndex={-1}
-                aria-label="Move cursor up"
-                {...bindCursorPad('up')}
-              >
-                <FiChevronUp size={20} />
-              </button>
-              <button
-                type="button"
-                className="cursor-pad-button cursor-pad-left"
-                tabIndex={-1}
-                aria-label="Move cursor left"
-                {...bindCursorPad('left')}
-              >
-                <FiChevronLeft size={20} />
-              </button>
-              <button
-                type="button"
-                className="cursor-pad-button cursor-pad-down"
-                tabIndex={-1}
-                aria-label="Move cursor down"
-                {...bindCursorPad('down')}
-              >
-                <FiChevronDown size={20} />
-              </button>
-              <button
-                type="button"
-                className="cursor-pad-button cursor-pad-right"
-                tabIndex={-1}
-                aria-label="Move cursor right"
-                {...bindCursorPad('right')}
-              >
-                <FiChevronRight size={20} />
-              </button>
-            </div>
+            {arrowKeysStyle === 'joystick' ? (
+              <CursorJoystick startRepeat={startCursorRepeat} stopRepeat={stopCursorRepeat} />
+            ) : (
+              <div className="cursor-pad-grid">
+                <button
+                  type="button"
+                  className="cursor-pad-button cursor-pad-up"
+                  tabIndex={-1}
+                  aria-label="Move cursor up"
+                  {...bindCursorPad('up')}
+                >
+                  <FiChevronUp size={30} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="cursor-pad-button cursor-pad-left"
+                  tabIndex={-1}
+                  aria-label="Move cursor left"
+                  {...bindCursorPad('left')}
+                >
+                  <FiChevronLeft size={30} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="cursor-pad-button cursor-pad-down"
+                  tabIndex={-1}
+                  aria-label="Move cursor down"
+                  {...bindCursorPad('down')}
+                >
+                  <FiChevronDown size={30} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="cursor-pad-button cursor-pad-right"
+                  tabIndex={-1}
+                  aria-label="Move cursor right"
+                  {...bindCursorPad('right')}
+                >
+                  <FiChevronRight size={30} aria-hidden />
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
@@ -1214,6 +1260,8 @@ export default function App() {
                 onArrowKeysVisibleChange={setArrowKeysVisible}
                 arrowKeysPlacement={arrowKeysPlacement}
                 onArrowKeysPlacementChange={setArrowKeysPlacement}
+                arrowKeysStyle={arrowKeysStyle}
+                onArrowKeysStyleChange={setArrowKeysStyle}
                 onRequestClearCode={requestClearCode}
               />
             )}
@@ -1374,9 +1422,10 @@ export default function App() {
         </button>
         <button
           type="button"
-          className="strip-button"
+          className="strip-button strip-button-format"
           aria-label="Format code"
           onClick={formatEditorCode}
+          hidden
         >
           <FiAlignLeft size={20} />
         </button>
