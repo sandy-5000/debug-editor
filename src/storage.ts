@@ -22,6 +22,11 @@ export type EditorLanguage = (typeof LANGUAGE_OPTIONS)[number]['id']
 const CODE_KEY = 'debug-editor-code'
 const THEME_KEY = 'debug-editor-theme'
 const LANGUAGE_KEY = 'debug-editor-language'
+const FONT_SIZE_KEY = 'debug-editor-font-size'
+
+export const DEFAULT_FONT_SIZE = 16
+export const MIN_FONT_SIZE = 12
+export const MAX_FONT_SIZE = 28
 
 const LANGUAGE_IDS = new Set<string>(LANGUAGE_OPTIONS.map((option) => option.id))
 
@@ -56,4 +61,22 @@ export function loadLanguage(): EditorLanguage {
 
 export function saveLanguage(language: EditorLanguage) {
   localStorage.setItem(LANGUAGE_KEY, language)
+}
+
+export function loadFontSize() {
+  const raw = localStorage.getItem(FONT_SIZE_KEY)
+  if (!raw) {
+    return DEFAULT_FONT_SIZE
+  }
+
+  const size = Number(raw)
+  if (!Number.isFinite(size)) {
+    return DEFAULT_FONT_SIZE
+  }
+
+  return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(size)))
+}
+
+export function saveFontSize(size: number) {
+  localStorage.setItem(FONT_SIZE_KEY, String(size))
 }

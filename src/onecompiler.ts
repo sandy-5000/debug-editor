@@ -36,7 +36,11 @@ export function oneCompilerFileName(language: EditorLanguage) {
   return FILE_NAMES[language] ?? 'main.txt'
 }
 
-export function buildEmbedUrl(language: EditorLanguage, theme: 'dark' | 'light') {
+export function buildEmbedUrl(
+  language: EditorLanguage,
+  theme: 'dark' | 'light',
+  fontSize = 16,
+) {
   const slug = oneCompilerLanguage(language) ?? 'cpp'
   const params = new URLSearchParams({
     listenToEvents: 'true',
@@ -49,7 +53,7 @@ export function buildEmbedUrl(language: EditorLanguage, theme: 'dark' | 'light')
     hideEditorOptions: 'true',
     hideStdin: 'true',
     theme,
-    fontSize: '16',
+    fontSize: String(fontSize),
   })
 
   return `https://onecompiler.com/embed/${slug}?${params.toString()}`

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { IconType } from 'react-icons'
 import {
+  FiAlertCircle,
+  FiCheckCircle,
   FiChevronDown,
   FiChevronUp,
   FiCopy,
@@ -8,9 +10,12 @@ import {
   FiHelpCircle,
   FiLayers,
   FiLink,
+  FiMinus,
   FiPlay,
   FiPlus,
+  FiMoon,
   FiSettings,
+  FiSun,
   FiTerminal,
   FiTrash2,
   FiX,
@@ -24,10 +29,14 @@ import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
 import {
   LANGUAGE_OPTIONS,
   loadCode,
+  loadFontSize,
   loadLanguage,
   loadTheme,
+  MAX_FONT_SIZE,
+  MIN_FONT_SIZE,
   monacoTheme,
   saveCode,
+  saveFontSize,
   saveLanguage,
   saveTheme,
   type EditorLanguage,
@@ -191,51 +200,130 @@ function PanelContent({
   panel,
   theme,
   language,
+  fontSize,
   onThemeChange,
   onLanguageChange,
+  onFontSizeChange,
+  onRequestClearCode,
 }: {
   panel: PanelId
   theme: EditorTheme
   language: EditorLanguage
+  fontSize: number
   onThemeChange: (theme: EditorTheme) => void
   onLanguageChange: (language: EditorLanguage) => void
+  onFontSizeChange: (size: number) => void
+  onRequestClearCode: () => void
 }) {
   if (panel === 'settings') {
+    const languageLabel = LANGUAGE_OPTIONS.find((option) => option.id === language)?.label ?? language
+
     return (
-      <>
+      <div className="settings-panel">
         <h2>Settings</h2>
-        <label className="theme-label">
-          Language
-          <select
-            className="settings-select"
-            value={language}
-            onChange={(event) => onLanguageChange(event.target.value as EditorLanguage)}
-          >
-            {LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="settings-copy">Theme</p>
-        <div className="theme-options" role="group" aria-label="Theme">
-          <button
-            type="button"
-            className={`theme-button${theme === 'light' ? ' active' : ''}`}
-            onClick={() => onThemeChange('light')}
-          >
-            Light
+        <section className="settings-section" aria-labelledby="settings-editor-heading">
+          <h3 id="settings-editor-heading" className="settings-section-title">Editor</h3>
+          <div className="settings-row">
+            <label className="settings-row-label" htmlFor="settings-language">
+              Language
+            </label>
+            <p className="settings-row-hint" id="settings-language-hint">
+              Controls highlighting and which runtimes can execute your code. Currently{' '}
+              <strong>{languageLabel}</strong>.
+            </p>
+            <div className="settings-select-wrap">
+              <select
+                id="settings-language"
+                className="settings-select"
+                value={language}
+                aria-describedby="settings-language-hint"
+                onChange={(event) => onLanguageChange(event.target.value as EditorLanguage)}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <FiChevronDown className="settings-select-chevron" aria-hidden />
+            </div>
+          </div>
+        </section>
+
+        <section className="settings-section" aria-labelledby="settings-appearance-heading">
+          <h3 id="settings-appearance-heading" className="settings-section-title">Appearance</h3>
+
+          <div className="settings-row settings-row-control">
+            <div className="settings-row-heading">
+              <span className="settings-row-label">Font size</span>
+              <p className="settings-row-hint">
+                Text size in the editor ({MIN_FONT_SIZE}–{MAX_FONT_SIZE}px). Saved for your next visit.
+              </p>
+            </div>
+            <div className="font-size-control">
+              <button
+                type="button"
+                className="font-size-step"
+                aria-label="Decrease font size"
+                disabled={fontSize <= MIN_FONT_SIZE}
+                onClick={() => onFontSizeChange(Math.max(MIN_FONT_SIZE, fontSize - 1))}
+              >
+                <FiMinus aria-hidden />
+              </button>
+              <span className="font-size-value" aria-live="polite">
+                {fontSize}px
+              </span>
+              <button
+                type="button"
+                className="font-size-step"
+                aria-label="Increase font size"
+                disabled={fontSize >= MAX_FONT_SIZE}
+                onClick={() => onFontSizeChange(Math.min(MAX_FONT_SIZE, fontSize + 1))}
+              >
+                <FiPlus aria-hidden />
+              </button>
+            </div>
+          </div>
+
+          <div className="settings-row settings-row-control">
+            <div className="settings-row-heading">
+              <span className="settings-row-label">Theme</span>
+              <p className="settings-row-hint">
+                {theme === 'dark'
+                  ? 'Dark mode reduces glare in low light.'
+                  : 'Light mode improves contrast in bright environments.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`theme-slider${theme === 'dark' ? ' is-dark' : ''}`}
+              role="switch"
+              aria-checked={theme === 'dark'}
+              aria-label={theme === 'dark' ? 'Dark theme on' : 'Light theme on'}
+              onClick={() => onThemeChange(theme === 'dark' ? 'light' : 'dark')}
+            >
+              <span className="theme-slider-track">
+                <FiSun className="theme-slider-icon theme-slider-icon-sun" aria-hidden />
+                <FiMoon className="theme-slider-icon theme-slider-icon-moon" aria-hidden />
+                <span className="theme-slider-thumb" aria-hidden>
+                  {theme === 'dark' ? <FiMoon /> : <FiSun />}
+                </span>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section className="settings-section settings-section-danger" aria-labelledby="settings-storage-heading">
+          <h3 id="settings-storage-heading" className="settings-section-title">Storage</h3>
+          <p className="settings-row-hint">
+            Code is auto-saved locally as you type. Clear all wipes the editor and removes that saved
+            copy from this device—it cannot be undone.
+          </p>
+          <button type="button" className="settings-clear-button" onClick={onRequestClearCode}>
+            Clear all code
           </button>
-          <button
-            type="button"
-            className={`theme-button${theme === 'dark' ? ' active' : ''}`}
-            onClick={() => onThemeChange('dark')}
-          >
-            Dark
-          </button>
-        </div>
-      </>
+        </section>
+      </div>
     )
   }
 
@@ -294,25 +382,52 @@ export default function App() {
   const pendingRunRef = useRef(false)
   const runTriggerTimeoutRef = useRef<number | null>(null)
   const runTimeoutRef = useRef<number | null>(null)
+  const toastTimeoutRef = useRef<number | null>(null)
+  const saveLocallyRef = useRef<() => void>(() => {})
+  const runCodeRef = useRef<() => void>(() => {})
   const [openPanel, setOpenPanel] = useState<PanelId | null>(null)
   const [userTemplates, setUserTemplates] = useState<Template[]>(loadUserTemplates)
   const [applyingId, setApplyingId] = useState<string | null>(null)
   const [templateStatus, setTemplateStatus] = useState<string | null>(null)
   const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null)
+  const [pendingClear, setPendingClear] = useState(false)
   const [theme, setTheme] = useState<EditorTheme>(loadTheme)
   const [language, setLanguage] = useState<EditorLanguage>(loadLanguage)
+  const [fontSize, setFontSize] = useState(loadFontSize)
   const [outputOpen, setOutputOpen] = useState(false)
   const [outputText, setOutputText] = useState('Run your code to see output here.')
   const [stdin, setStdin] = useState('')
   const [running, setRunning] = useState(false)
   const [runnerReady, setRunnerReady] = useState(false)
   const [runnerKey, setRunnerKey] = useState(0)
-  const [copyStatus, setCopyStatus] = useState<string | null>(null)
+  const [toast, setToast] = useState<'save' | 'copy' | 'copy-error' | null>(null)
   const templates = [EXAMPLE_TEMPLATE, ...userTemplates]
   const embedUrl = useMemo(
-    () => buildEmbedUrl(language, theme === 'dark' ? 'dark' : 'light'),
-    [language, theme],
+    () => buildEmbedUrl(language, theme === 'dark' ? 'dark' : 'light', fontSize),
+    [language, theme, fontSize],
   )
+
+  const showToast = useCallback((kind: 'save' | 'copy' | 'copy-error') => {
+    setToast(kind)
+    if (toastTimeoutRef.current !== null) {
+      window.clearTimeout(toastTimeoutRef.current)
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToast(null)
+      toastTimeoutRef.current = null
+    }, 2500)
+  }, [])
+
+  const saveEditorLocally = useCallback(() => {
+    const editor = editorRef.current
+    if (!editor) {
+      return
+    }
+    saveCode(editor.getValue())
+    showToast('save')
+  }, [showToast])
+
+  saveLocallyRef.current = saveEditorLocally
 
   useEffect(() => {
     const container = containerRef.current
@@ -325,7 +440,7 @@ export default function App() {
       language: loadLanguage(),
       theme: monacoTheme(loadTheme()),
       automaticLayout: true,
-      fontSize: 16,
+      fontSize: loadFontSize(),
       tabSize: 4,
       insertSpaces: true,
       detectIndentation: false,
@@ -342,12 +457,48 @@ export default function App() {
       saveCode(editor.getValue())
     })
 
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      saveLocallyRef.current()
+    })
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Semicolon, () => {
+      runCodeRef.current()
+    })
+
     editorRef.current = editor
 
     return () => {
       persist.dispose()
       editorRef.current = null
       editor.dispose()
+    }
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return
+      }
+
+      if (event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        saveLocallyRef.current()
+        return
+      }
+
+      if (event.key === ';' || event.code === 'Semicolon') {
+        event.preventDefault()
+        runCodeRef.current()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      if (toastTimeoutRef.current !== null) {
+        window.clearTimeout(toastTimeoutRef.current)
+        toastTimeoutRef.current = null
+      }
     }
   }, [])
 
@@ -364,6 +515,11 @@ export default function App() {
     }
     saveLanguage(language)
   }, [language])
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ fontSize })
+    saveFontSize(fontSize)
+  }, [fontSize])
 
   const focusEditor = () => {
     editorRef.current?.focus()
@@ -481,6 +637,11 @@ export default function App() {
         return
       }
 
+      if (pendingClear) {
+        setPendingClear(false)
+        return
+      }
+
       if (outputOpen && running) {
         cancelRun()
         return
@@ -500,7 +661,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [openPanel, pendingTemplate, outputOpen, running, cancelRun])
+  }, [openPanel, pendingTemplate, pendingClear, outputOpen, running, cancelRun])
 
   const runCode = useCallback(() => {
     setOpenPanel(null)
@@ -570,6 +731,13 @@ export default function App() {
     }, 30000)
   }, [language, runnerReady, stdin])
 
+  runCodeRef.current = () => {
+    if (running) {
+      return
+    }
+    runCode()
+  }
+
   useEffect(() => {
     setRunnerReady(false)
     pendingRunRef.current = false
@@ -588,12 +756,10 @@ export default function App() {
 
     try {
       await navigator.clipboard.writeText(code)
-      setCopyStatus('Code copied')
+      showToast('copy')
     } catch {
-      setCopyStatus('Could not copy code')
+      showToast('copy-error')
     }
-
-    window.setTimeout(() => setCopyStatus(null), 2000)
   }
 
   const toggleOutput = () => {
@@ -658,6 +824,24 @@ export default function App() {
     setPendingTemplate(null)
   }
 
+  const requestClearCode = () => {
+    setPendingClear(true)
+  }
+
+  const cancelClearCode = () => {
+    setPendingClear(false)
+  }
+
+  const confirmClearCode = () => {
+    const editor = editorRef.current
+    if (editor) {
+      editor.setValue('')
+      saveCode('')
+      editor.focus()
+    }
+    setPendingClear(false)
+  }
+
   const confirmApplyTemplate = async () => {
     const template = pendingTemplate
     if (!template) {
@@ -692,6 +876,41 @@ export default function App() {
 
   return (
     <div className="page" data-theme={theme}>
+      <div
+        className={`app-toast${toast ? ' visible' : ''}`}
+        role="status"
+        aria-live="polite"
+      >
+        {toast === 'save' ? (
+          <>
+            <FiCheckCircle className="app-toast-icon" size={26} aria-hidden />
+            <div className="app-toast-body">
+              <p className="app-toast-title">Saved to this browser</p>
+              <p className="app-toast-detail">
+                Your code is stored on this device, not on a server.
+              </p>
+            </div>
+          </>
+        ) : null}
+        {toast === 'copy' ? (
+          <>
+            <FiCopy className="app-toast-icon" size={26} aria-hidden />
+            <div className="app-toast-body">
+              <p className="app-toast-title">Copied to clipboard</p>
+              <p className="app-toast-detail">Paste your code anywhere with Ctrl+V (Cmd+V on Mac).</p>
+            </div>
+          </>
+        ) : null}
+        {toast === 'copy-error' ? (
+          <>
+            <FiAlertCircle className="app-toast-icon app-toast-icon-error" size={26} aria-hidden />
+            <div className="app-toast-body">
+              <p className="app-toast-title">Could not copy</p>
+              <p className="app-toast-detail">Your browser blocked clipboard access. Try selecting the code manually.</p>
+            </div>
+          </>
+        ) : null}
+      </div>
       <iframe
         key={runnerKey}
         ref={runnerRef}
@@ -708,7 +927,7 @@ export default function App() {
       />
 
       <aside
-        className={`side-panel${openPanel ? ' open' : ''}`}
+        className={`side-panel${openPanel ? ' open' : ''}${openPanel === 'settings' ? ' side-panel-settings' : ''}`}
         role="dialog"
         aria-modal={openPanel ? true : undefined}
         aria-hidden={!openPanel}
@@ -738,8 +957,11 @@ export default function App() {
                 panel={openPanel}
                 theme={theme}
                 language={language}
+                fontSize={fontSize}
                 onThemeChange={setTheme}
                 onLanguageChange={setLanguage}
+                onFontSizeChange={setFontSize}
+                onRequestClearCode={requestClearCode}
               />
             )}
           </>
@@ -807,6 +1029,32 @@ export default function App() {
           </>
         ) : null}
       </aside>
+
+      {pendingClear ? (
+        <div className="confirm-backdrop" onClick={cancelClearCode}>
+          <div
+            className="confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="clear-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="clear-confirm-title">Clear all code?</h2>
+            <p>
+              This empties the editor completely. The code stored in this browser will be
+              cleared too.
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="confirm-button cancel" onClick={cancelClearCode}>
+                Cancel
+              </button>
+              <button type="button" className="confirm-button danger" onClick={confirmClearCode}>
+                Clear all
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pendingTemplate ? (
         <div className="confirm-backdrop" onClick={cancelApplyTemplate}>
@@ -879,8 +1127,8 @@ export default function App() {
         </button>
         <button
           type="button"
-          className={`strip-button${copyStatus === 'Code copied' ? ' active' : ''}`}
-          aria-label={copyStatus ?? 'Copy code'}
+          className="strip-button"
+          aria-label="Copy code"
           onClick={copyEditorCode}
         >
           <FiCopy size={20} />
