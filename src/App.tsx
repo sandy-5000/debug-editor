@@ -10,6 +10,7 @@ import {
 import type { IconType } from 'react-icons'
 import {
   FiAlertCircle,
+  FiAlignLeft,
   FiCheckCircle,
   FiChevronDown,
   FiChevronLeft,
@@ -74,6 +75,7 @@ import {
   type OneCompilerCodePayload,
 } from './onecompiler.ts'
 import { prepareCppCodeForRun } from './cppRunner.ts'
+import { formatSource } from './formatCode.ts'
 
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
@@ -438,8 +440,8 @@ function PanelContent({
     <>
       <h2>Help</h2>
       <p>
-        Use the on-screen arrow pad on the editor minimap or a keyboard to move the cursor. Open
-        Output to run code
+        Use the on-screen arrow pad on the editor minimap or a keyboard to move the cursor. Format
+        code from the sidebar or with Shift+Alt+F (Option+Shift+F on Mac). Open Output to run code
         and see results. Templates replace the editor after you confirm.
       </p>
     </>
@@ -459,6 +461,7 @@ export default function App() {
   const toastTimeoutRef = useRef<number | null>(null)
   const saveLocallyRef = useRef<() => void>(() => {})
   const runCodeRef = useRef<() => void>(() => {})
+  const formatDocumentRef = useRef<() => void>(() => {})
   const [openPanel, setOpenPanel] = useState<PanelId | null>(null)
   const [userTemplates, setUserTemplates] = useState<Template[]>(loadUserTemplates)
   const [applyingId, setApplyingId] = useState<string | null>(null)
@@ -476,14 +479,16 @@ export default function App() {
   const [running, setRunning] = useState(false)
   const [runnerReady, setRunnerReady] = useState(false)
   const [runnerKey, setRunnerKey] = useState(0)
-  const [toast, setToast] = useState<'save' | 'copy' | 'copy-error' | null>(null)
+  const [toast, setToast] = useState<'save' | 'copy' | 'copy-error' | 'format-error' | null>(
+    null,
+  )
   const templates = [EXAMPLE_TEMPLATE, ...userTemplates]
   const embedUrl = useMemo(
     () => buildEmbedUrl(language, theme === 'dark' ? 'dark' : 'light', fontSize),
     [language, theme, fontSize],
   )
 
-  const showToast = useCallback((kind: 'save' | 'copy' | 'copy-error') => {
+  const showToast = useCallback((kind: 'save' | 'copy' | 'copy-error' | 'format-error') => {
     setToast(kind)
     if (toastTimeoutRef.current !== null) {
       window.clearTimeout(toastTimeoutRef.current)
@@ -541,6 +546,10 @@ export default function App() {
       runCodeRef.current()
     })
 
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => {
+      formatDocumentRef.current()
+    })
+
     editorRef.current = editor
 
     return () => {
@@ -552,6 +561,12 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.shiftKey && event.altKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        formatDocumentRef.current()
+        return
+      }
+
       if (!(event.ctrlKey || event.metaKey)) {
         return
       }
@@ -855,6 +870,34 @@ export default function App() {
     runCode()
   }, [runnerReady, runCode])
 
+  const formatEditorCode = useCallback(async () => {
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    if (!editor || !model) {
+      return
+    }
+
+    const result = await formatSource(model.getValue(), language)
+    if (result.status === 'unsupported') {
+      return
+    }
+    if (result.status === 'error') {
+      showToast('format-error')
+      return
+    }
+    if (result.text === model.getValue()) {
+      return
+    }
+
+    const fullRange = model.getFullModelRange()
+    editor.pushUndoStop()
+    editor.executeEdits('format', [{ range: fullRange, text: result.text }])
+    editor.pushUndoStop()
+    saveCode(editor.getValue())
+  }, [language, showToast])
+
+  formatDocumentRef.current = formatEditorCode
+
   const copyEditorCode = async () => {
     const code = editorRef.current?.getValue() ?? ''
 
@@ -1011,6 +1054,18 @@ export default function App() {
             <div className="app-toast-body">
               <p className="app-toast-title">Could not copy</p>
               <p className="app-toast-detail">Your browser blocked clipboard access. Try selecting the code manually.</p>
+            </div>
+          </>
+        ) : null}
+        {toast === 'format-error' ? (
+          <>
+            <FiAlertCircle className="app-toast-icon app-toast-icon-error" size={26} aria-hidden />
+            <div className="app-toast-body">
+              <p className="app-toast-title">Cannot format</p>
+              <p className="app-toast-detail">
+                Fix syntax errors in your code, then try again. C++ and similar languages are not
+                supported yet.
+              </p>
             </div>
           </>
         ) : null}
@@ -1273,6 +1328,14 @@ export default function App() {
           onClick={copyEditorCode}
         >
           <FiCopy size={20} />
+        </button>
+        <button
+          type="button"
+          className="strip-button"
+          aria-label="Format code"
+          onClick={formatEditorCode}
+        >
+          <FiAlignLeft size={20} />
         </button>
         <div className="strip-divider" />
         {PANEL_ITEMS.map(({ id, label, icon: Icon }) => (
