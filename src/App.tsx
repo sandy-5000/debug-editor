@@ -60,11 +60,13 @@ import {
   type EditorTheme,
 } from './storage.ts'
 import {
-  EXAMPLE_TEMPLATE,
+  getBuiltInTemplates,
   isHttpUrl,
+  loadTemplateContent,
   loadUserTemplates,
   nameFromUrl,
   saveUserTemplates,
+  templateSubtitle,
   type Template,
 } from './templates.ts'
 import {
@@ -112,6 +114,14 @@ int main() {
   return 0;
 }
 `
+
+function defaultCodeForLanguage(language: EditorLanguage) {
+  return language === 'cpp' ? INITIAL_VALUE : ''
+}
+
+function codeForLanguage(language: EditorLanguage) {
+  return loadCode(language) ?? defaultCodeForLanguage(language)
+}
 
 type PanelId = 'templates' | 'settings' | 'links' | 'files' | 'help'
 
@@ -170,7 +180,7 @@ function TemplatesPanel({
               onClick={() => onApply(template)}
             >
               <span className="template-name">{template.name}</span>
-              <span className="template-url">{template.url}</span>
+              <span className="template-url">{templateSubtitle(template)}</span>
             </button>
             {template.builtIn ? null : (
               <button
@@ -463,8 +473,10 @@ export default function App() {
   const saveLocallyRef = useRef<() => void>(() => {})
   const runCodeRef = useRef<() => void>(() => {})
   const formatDocumentRef = useRef<() => void>(() => {})
+  const languageRef = useRef<EditorLanguage>(loadLanguage())
+  const languageSwitchReadyRef = useRef(false)
   const [openPanel, setOpenPanel] = useState<PanelId | null>(null)
-  const [userTemplates, setUserTemplates] = useState<Template[]>(loadUserTemplates)
+  const [userTemplates, setUserTemplates] = useState(() => loadUserTemplates(loadLanguage()))
   const [applyingId, setApplyingId] = useState<string | null>(null)
   const [templateStatus, setTemplateStatus] = useState<string | null>(null)
   const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null)
@@ -483,7 +495,9 @@ export default function App() {
   const [toast, setToast] = useState<'save' | 'copy' | 'copy-error' | 'format-error' | null>(
     null,
   )
-  const templates = [EXAMPLE_TEMPLATE, ...userTemplates]
+  const templates = useMemo(() => {
+    return [...getBuiltInTemplates(language), ...userTemplates]
+  }, [language, userTemplates])
   const embedUrl = useMemo(
     () => buildEmbedUrl(language, theme === 'dark' ? 'dark' : 'light', fontSize),
     [language, theme, fontSize],
@@ -505,11 +519,29 @@ export default function App() {
     if (!editor) {
       return
     }
-    saveCode(editor.getValue())
+    saveCode(editor.getValue(), languageRef.current)
     showToast('save')
   }, [showToast])
 
   saveLocallyRef.current = saveEditorLocally
+
+  languageRef.current = language
+
+  const changeLanguage = useCallback(
+    (next: EditorLanguage) => {
+      if (next === language) {
+        return
+      }
+
+      const editor = editorRef.current
+      if (editor) {
+        saveCode(editor.getValue(), language)
+      }
+
+      setLanguage(next)
+    },
+    [language],
+  )
 
   useEffect(() => {
     const container = containerRef.current
@@ -517,9 +549,10 @@ export default function App() {
       return
     }
 
+    const initialLanguage = loadLanguage()
     const editor = monaco.editor.create(container, {
-      value: loadCode() ?? INITIAL_VALUE,
-      language: loadLanguage(),
+      value: codeForLanguage(initialLanguage),
+      language: initialLanguage,
       theme: monacoTheme(loadTheme()),
       automaticLayout: true,
       fontSize: loadFontSize(),
@@ -534,9 +567,9 @@ export default function App() {
       },
     })
 
-    saveCode(editor.getValue())
+    saveCode(editor.getValue(), initialLanguage)
     const persist = editor.onDidChangeModelContent(() => {
-      saveCode(editor.getValue())
+      saveCode(editor.getValue(), languageRef.current)
     })
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
@@ -601,11 +634,25 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    const model = editorRef.current?.getModel()
-    if (model) {
-      monaco.editor.setModelLanguage(model, language)
+    setUserTemplates(loadUserTemplates(language))
+  }, [language])
+
+  useEffect(() => {
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    if (!editor || !model) {
+      return
     }
+
+    monaco.editor.setModelLanguage(model, language)
     saveLanguage(language)
+
+    if (!languageSwitchReadyRef.current) {
+      languageSwitchReadyRef.current = true
+      return
+    }
+
+    editor.setValue(codeForLanguage(language))
   }, [language])
 
   useEffect(() => {
@@ -894,7 +941,7 @@ export default function App() {
     editor.pushUndoStop()
     editor.executeEdits('format', [{ range: fullRange, text: result.text }])
     editor.pushUndoStop()
-    saveCode(editor.getValue())
+    saveCode(editor.getValue(), language)
   }, [language, showToast])
 
   formatDocumentRef.current = formatEditorCode
@@ -948,7 +995,7 @@ export default function App() {
 
     setUserTemplates((current) => {
       const next = [...current, template]
-      saveUserTemplates(next)
+      saveUserTemplates(next, language)
       return next
     })
     setTemplateStatus(`Saved ${template.name}`)
@@ -958,7 +1005,7 @@ export default function App() {
   const removeTemplate = (id: string) => {
     setUserTemplates((current) => {
       const next = current.filter((template) => template.id !== id)
-      saveUserTemplates(next)
+      saveUserTemplates(next, language)
       return next
     })
     setTemplateStatus('Template removed')
@@ -984,7 +1031,7 @@ export default function App() {
     const editor = editorRef.current
     if (editor) {
       editor.setValue('')
-      saveCode('')
+      saveCode('', language)
       editor.focus()
     }
     setPendingClear(false)
@@ -998,7 +1045,7 @@ export default function App() {
 
     const editor = editorRef.current
     if (editor) {
-      saveCode(editor.getValue())
+      saveCode(editor.getValue(), language)
     }
 
     setPendingTemplate(null)
@@ -1006,12 +1053,7 @@ export default function App() {
     setTemplateStatus(`Loading ${template.name}...`)
 
     try {
-      const response = await fetch(template.url)
-      if (!response.ok) {
-        throw new Error(`Could not load template (${response.status})`)
-      }
-
-      const text = await response.text()
+      const text = await loadTemplateContent(template)
       editorRef.current?.setValue(text)
       setTemplateStatus(`Loaded ${template.name}`)
     } catch (error) {
@@ -1166,7 +1208,7 @@ export default function App() {
                 language={language}
                 fontSize={fontSize}
                 onThemeChange={setTheme}
-                onLanguageChange={setLanguage}
+                onLanguageChange={changeLanguage}
                 onFontSizeChange={setFontSize}
                 arrowKeysVisible={arrowKeysVisible}
                 onArrowKeysVisibleChange={setArrowKeysVisible}

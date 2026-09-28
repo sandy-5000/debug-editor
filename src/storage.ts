@@ -19,7 +19,8 @@ export const LANGUAGE_OPTIONS = [
 
 export type EditorLanguage = (typeof LANGUAGE_OPTIONS)[number]['id']
 
-const CODE_KEY = 'debug-editor-code'
+const CODE_BY_LANG_KEY = 'debug-editor-code-by-lang'
+const LEGACY_CODE_KEY = 'debug-editor-code'
 const THEME_KEY = 'debug-editor-theme'
 const LANGUAGE_KEY = 'debug-editor-language'
 const FONT_SIZE_KEY = 'debug-editor-font-size'
@@ -34,12 +35,66 @@ export const MAX_FONT_SIZE = 28
 
 const LANGUAGE_IDS = new Set<string>(LANGUAGE_OPTIONS.map((option) => option.id))
 
-export function loadCode() {
-  return localStorage.getItem(CODE_KEY)
+let legacyCodeMigrated = false
+
+function readCodeMap(): Partial<Record<EditorLanguage, string>> {
+  const raw = localStorage.getItem(CODE_BY_LANG_KEY)
+  if (!raw) {
+    return {}
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') {
+      return {}
+    }
+
+    const map: Partial<Record<EditorLanguage, string>> = {}
+    for (const [key, value] of Object.entries(parsed)) {
+      if (LANGUAGE_IDS.has(key) && typeof value === 'string') {
+        map[key as EditorLanguage] = value
+      }
+    }
+    return map
+  } catch {
+    return {}
+  }
 }
 
-export function saveCode(code: string) {
-  localStorage.setItem(CODE_KEY, code)
+function writeCodeMap(map: Partial<Record<EditorLanguage, string>>) {
+  localStorage.setItem(CODE_BY_LANG_KEY, JSON.stringify(map))
+}
+
+function migrateLegacyCode() {
+  if (legacyCodeMigrated) {
+    return
+  }
+  legacyCodeMigrated = true
+
+  const legacy = localStorage.getItem(LEGACY_CODE_KEY)
+  if (!legacy) {
+    return
+  }
+
+  const map = readCodeMap()
+  if (map.cpp === undefined) {
+    map.cpp = legacy
+    writeCodeMap(map)
+  }
+  localStorage.removeItem(LEGACY_CODE_KEY)
+}
+
+export function loadCode(language: EditorLanguage) {
+  migrateLegacyCode()
+  const map = readCodeMap()
+  return map[language] ?? null
+}
+
+export function saveCode(code: string, language: EditorLanguage) {
+  migrateLegacyCode()
+  const map = readCodeMap()
+  map[language] = code
+  writeCodeMap(map)
 }
 
 export function loadTheme(): EditorTheme {
