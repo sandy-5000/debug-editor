@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type MouseEvent,
   type PointerEvent,
 } from 'react'
 import type { IconType } from 'react-icons'
@@ -685,7 +686,7 @@ export default function App() {
     onPointerUp: stopCursorRepeat,
     onPointerLeave: stopCursorRepeat,
     onPointerCancel: stopCursorRepeat,
-    onContextMenu: (event: PointerEvent) => event.preventDefault(),
+    onContextMenu: (event: MouseEvent<HTMLButtonElement>) => event.preventDefault(),
   })
 
   useEffect(() => {
