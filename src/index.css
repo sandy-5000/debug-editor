@@ -14,6 +14,12 @@
   --error: #f48771;
   --backdrop: rgba(0, 0, 0, 0.45);
   --strip-width: 72px;
+  --z-cursor-pad: 40;
+  --z-modal-backdrop: 50;
+  --z-modal: 51;
+  --z-strip: 52;
+  --z-confirm: 55;
+  --z-toast: 60;
 }
 
 [data-theme='light'] {
@@ -31,6 +37,12 @@
   --error: #c42b1c;
   --backdrop: rgba(0, 0, 0, 0.28);
   --strip-width: 72px;
+  --z-cursor-pad: 40;
+  --z-modal-backdrop: 50;
+  --z-modal: 51;
+  --z-strip: 52;
+  --z-confirm: 55;
+  --z-toast: 60;
 }
 
 html,
@@ -53,7 +65,7 @@ body,
   position: fixed;
   top: 16px;
   right: calc(var(--strip-width) + 16px);
-  z-index: 30;
+  z-index: var(--z-toast);
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -103,16 +115,90 @@ body,
   transform: translateY(0);
 }
 
-.editor {
+.editor-shell {
+  position: relative;
   flex: 1;
   min-width: 0;
   height: 100%;
 }
 
+.editor-shell .editor {
+  width: 100%;
+  height: 100%;
+}
+
+.cursor-pad {
+  position: absolute;
+  right: 30px;
+  z-index: var(--z-cursor-pad);
+  pointer-events: none;
+}
+
+.cursor-pad-bottom {
+  bottom: 12px;
+  top: auto;
+}
+
+.cursor-pad-top {
+  top: 12px;
+  bottom: auto;
+}
+
+.cursor-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(2, 44px);
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chrome) 92%, transparent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+}
+
+.cursor-pad-button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--input-bg) 90%, var(--chrome));
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cursor-pad-button:hover {
+  color: var(--text-h);
+  background: var(--hover);
+}
+
+.cursor-pad-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.cursor-pad-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.cursor-pad-down {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.cursor-pad-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
 .options-strip {
   position: relative;
   box-sizing: border-box;
-  z-index: 20;
+  z-index: var(--z-strip);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -156,7 +242,7 @@ body,
 .panel-backdrop {
   position: fixed;
   inset: 0 var(--strip-width) 0 0;
-  z-index: 10;
+  z-index: var(--z-modal-backdrop);
   background: var(--backdrop);
   opacity: 0;
   pointer-events: none;
@@ -168,11 +254,28 @@ body,
   pointer-events: auto;
 }
 
+.side-panel,
+.output-panel,
+.output-pre,
+.confirm-dialog {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.side-panel::-webkit-scrollbar,
+.output-panel::-webkit-scrollbar,
+.output-pre::-webkit-scrollbar,
+.confirm-dialog::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .side-panel {
   position: fixed;
   top: 0;
   right: var(--strip-width);
-  z-index: 11;
+  z-index: var(--z-modal);
   box-sizing: border-box;
   width: min(320px, calc(100% - var(--strip-width)));
   height: 100%;
@@ -184,11 +287,13 @@ body,
   transform: translateX(100%);
   transition: transform 0.25s ease;
   pointer-events: none;
+  visibility: hidden;
 }
 
 .side-panel.open {
   transform: translateX(0);
   pointer-events: auto;
+  visibility: visible;
 }
 
 .side-panel.side-panel-settings {
@@ -378,8 +483,7 @@ body,
   border-top: 1px solid var(--border);
 }
 
-.settings-section > .settings-row:first-of-type,
-.settings-section > .settings-row-heading:first-child {
+.settings-section > .settings-row:first-of-type {
   border-top: 0;
 }
 
@@ -387,14 +491,12 @@ body,
   padding-top: 0;
 }
 
-.settings-row-control {
-  gap: 12px;
-}
-
-.settings-row-heading {
+.settings-row-options {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
 }
 
 .settings-row-label {
@@ -568,10 +670,100 @@ body,
   transform: translateX(46px);
 }
 
+.settings-visibility-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.settings-visibility-track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--input-bg);
+  transition: background 0.2s ease;
+}
+
+.settings-visibility-toggle.is-on .settings-visibility-track {
+  background: color-mix(in srgb, var(--accent) 35%, var(--input-bg));
+  border-color: var(--accent);
+}
+
+.settings-visibility-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.settings-visibility-toggle.is-on .settings-visibility-thumb {
+  background: var(--accent);
+  transform: translateX(18px);
+}
+
+.settings-visibility-label {
+  font: 600 13px/1.3 system-ui, sans-serif;
+  color: var(--text-h);
+}
+
+.settings-arrow-controls {
+  justify-content: flex-start;
+  gap: 30px;
+}
+
+.settings-placement-toggle {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+.settings-placement-toggle.is-disabled {
+  opacity: 0.45;
+}
+
+.settings-placement-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: 600 13px/1.3 system-ui, sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.settings-placement-option.active {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.settings-placement-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .confirm-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: var(--z-confirm);
   display: grid;
   place-items: center;
   padding: 20px;
@@ -581,7 +773,9 @@ body,
 .confirm-dialog {
   box-sizing: border-box;
   width: min(360px, 100%);
+  max-height: min(90vh, 100%);
   padding: 20px;
+  overflow: auto;
   color: var(--text);
   background: var(--chrome);
   border: 1px solid var(--border);
@@ -640,7 +834,7 @@ body,
 .output-backdrop {
   position: fixed;
   inset: 0 var(--strip-width) 0 0;
-  z-index: 13;
+  z-index: var(--z-modal-backdrop);
   background: var(--backdrop);
   opacity: 0;
   pointer-events: none;
@@ -656,7 +850,7 @@ body,
   position: fixed;
   top: 0;
   right: var(--strip-width);
-  z-index: 14;
+  z-index: var(--z-modal);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

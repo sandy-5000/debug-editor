@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent,
+} from 'react'
 import type { IconType } from 'react-icons'
 import {
   FiAlertCircle,
   FiCheckCircle,
   FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
   FiChevronUp,
   FiCopy,
   FiFolder,
@@ -28,6 +38,8 @@ import jsonWorker from 'monaco-editor/language/json/json.worker?worker'
 import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
 import {
   LANGUAGE_OPTIONS,
+  loadArrowKeysPlacement,
+  loadArrowKeysVisible,
   loadCode,
   loadFontSize,
   loadLanguage,
@@ -35,6 +47,9 @@ import {
   MAX_FONT_SIZE,
   MIN_FONT_SIZE,
   monacoTheme,
+  saveArrowKeysPlacement,
+  saveArrowKeysVisible,
+  type ArrowKeysPlacement,
   saveCode,
   saveFontSize,
   saveLanguage,
@@ -204,6 +219,10 @@ function PanelContent({
   onThemeChange,
   onLanguageChange,
   onFontSizeChange,
+  arrowKeysVisible,
+  onArrowKeysVisibleChange,
+  arrowKeysPlacement,
+  onArrowKeysPlacementChange,
   onRequestClearCode,
 }: {
   panel: PanelId
@@ -213,6 +232,10 @@ function PanelContent({
   onThemeChange: (theme: EditorTheme) => void
   onLanguageChange: (language: EditorLanguage) => void
   onFontSizeChange: (size: number) => void
+  arrowKeysVisible: boolean
+  onArrowKeysVisibleChange: (visible: boolean) => void
+  arrowKeysPlacement: ArrowKeysPlacement
+  onArrowKeysPlacementChange: (placement: ArrowKeysPlacement) => void
   onRequestClearCode: () => void
 }) {
   if (panel === 'settings') {
@@ -231,7 +254,7 @@ function PanelContent({
               Controls highlighting and which runtimes can execute your code. Currently{' '}
               <strong>{languageLabel}</strong>.
             </p>
-            <div className="settings-select-wrap">
+            <div className="settings-row-options settings-select-wrap">
               <select
                 id="settings-language"
                 className="settings-select"
@@ -253,14 +276,12 @@ function PanelContent({
         <section className="settings-section" aria-labelledby="settings-appearance-heading">
           <h3 id="settings-appearance-heading" className="settings-section-title">Appearance</h3>
 
-          <div className="settings-row settings-row-control">
-            <div className="settings-row-heading">
-              <span className="settings-row-label">Font size</span>
-              <p className="settings-row-hint">
-                Text size in the editor ({MIN_FONT_SIZE}–{MAX_FONT_SIZE}px). Saved for your next visit.
-              </p>
-            </div>
-            <div className="font-size-control">
+          <div className="settings-row">
+            <span className="settings-row-label">Font size</span>
+            <p className="settings-row-hint">
+              Text size in the editor ({MIN_FONT_SIZE}–{MAX_FONT_SIZE}px). Saved for your next visit.
+            </p>
+            <div className="settings-row-options font-size-control">
               <button
                 type="button"
                 className="font-size-step"
@@ -285,15 +306,14 @@ function PanelContent({
             </div>
           </div>
 
-          <div className="settings-row settings-row-control">
-            <div className="settings-row-heading">
-              <span className="settings-row-label">Theme</span>
-              <p className="settings-row-hint">
-                {theme === 'dark'
-                  ? 'Dark mode reduces glare in low light.'
-                  : 'Light mode improves contrast in bright environments.'}
-              </p>
-            </div>
+          <div className="settings-row">
+            <span className="settings-row-label">Theme</span>
+            <p className="settings-row-hint">
+              {theme === 'dark'
+                ? 'Dark mode reduces glare in low light.'
+                : 'Light mode improves contrast in bright environments.'}
+            </p>
+            <div className="settings-row-options">
             <button
               type="button"
               className={`theme-slider${theme === 'dark' ? ' is-dark' : ''}`}
@@ -310,6 +330,59 @@ function PanelContent({
                 </span>
               </span>
             </button>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">On-screen arrow keys</span>
+            <p className="settings-row-hint">
+              {arrowKeysVisible
+                ? `Pad on the ${arrowKeysPlacement} right, over the minimap.`
+                : 'Off—use a keyboard or turn on for touch.'}
+            </p>
+            <div className="settings-row-options settings-arrow-controls">
+              <button
+                type="button"
+                className={`settings-visibility-toggle${arrowKeysVisible ? ' is-on' : ''}`}
+                role="switch"
+                aria-checked={arrowKeysVisible}
+                aria-label={arrowKeysVisible ? 'Arrow keys visible' : 'Arrow keys hidden'}
+                onClick={() => onArrowKeysVisibleChange(!arrowKeysVisible)}
+              >
+                <span className="settings-visibility-track">
+                  <span className="settings-visibility-thumb" />
+                </span>
+                <span className="settings-visibility-label">
+                  {arrowKeysVisible ? 'On' : 'Off'}
+                </span>
+              </button>
+              <div
+                className={`settings-placement-toggle${arrowKeysVisible ? '' : ' is-disabled'}`}
+                role="group"
+                aria-label="Arrow keys corner"
+              >
+                <button
+                  type="button"
+                  className={`settings-placement-option${arrowKeysPlacement === 'top' ? ' active' : ''}`}
+                  disabled={!arrowKeysVisible}
+                  aria-label="Top right"
+                  aria-pressed={arrowKeysPlacement === 'top'}
+                  onClick={() => onArrowKeysPlacementChange('top')}
+                >
+                  Top
+                </button>
+                <button
+                  type="button"
+                  className={`settings-placement-option${arrowKeysPlacement === 'bottom' ? ' active' : ''}`}
+                  disabled={!arrowKeysVisible}
+                  aria-label="Bottom right"
+                  aria-pressed={arrowKeysPlacement === 'bottom'}
+                  onClick={() => onArrowKeysPlacementChange('bottom')}
+                >
+                  Bottom
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -365,7 +438,8 @@ function PanelContent({
     <>
       <h2>Help</h2>
       <p>
-        Use the up and down arrows to move the cursor. Open Output to run code
+        Use the on-screen arrow pad on the editor minimap or a keyboard to move the cursor. Open
+        Output to run code
         and see results. Templates replace the editor after you confirm.
       </p>
     </>
@@ -394,6 +468,8 @@ export default function App() {
   const [theme, setTheme] = useState<EditorTheme>(loadTheme)
   const [language, setLanguage] = useState<EditorLanguage>(loadLanguage)
   const [fontSize, setFontSize] = useState(loadFontSize)
+  const [arrowKeysVisible, setArrowKeysVisible] = useState(loadArrowKeysVisible)
+  const [arrowKeysPlacement, setArrowKeysPlacement] = useState(loadArrowKeysPlacement)
   const [outputOpen, setOutputOpen] = useState(false)
   const [outputText, setOutputText] = useState('Run your code to see output here.')
   const [stdin, setStdin] = useState('')
@@ -521,6 +597,14 @@ export default function App() {
     saveFontSize(fontSize)
   }, [fontSize])
 
+  useEffect(() => {
+    saveArrowKeysVisible(arrowKeysVisible)
+  }, [arrowKeysVisible])
+
+  useEffect(() => {
+    saveArrowKeysPlacement(arrowKeysPlacement)
+  }, [arrowKeysPlacement])
+
   const focusEditor = () => {
     editorRef.current?.focus()
   }
@@ -539,17 +623,26 @@ export default function App() {
     focusEditor()
   }
 
-  const moveCursor = (direction: 'up' | 'down') => {
+  type CursorDirection = 'up' | 'down' | 'left' | 'right'
+
+  const cursorCommand: Record<CursorDirection, string> = {
+    up: 'cursorUp',
+    down: 'cursorDown',
+    left: 'cursorLeft',
+    right: 'cursorRight',
+  }
+
+  const moveCursor = (direction: CursorDirection) => {
     const editor = editorRef.current
     if (!editor) {
       return
     }
 
     editor.focus()
-    editor.trigger('keyboard', direction === 'up' ? 'cursorUp' : 'cursorDown', null)
+    editor.trigger('keyboard', cursorCommand[direction], null)
   }
 
-  const startCursorRepeat = (direction: 'up' | 'down') => {
+  const startCursorRepeat = (direction: CursorDirection) => {
     if (delayRef.current !== null) {
       window.clearTimeout(delayRef.current)
       delayRef.current = null
@@ -568,6 +661,17 @@ export default function App() {
       }, 80)
     }, 400)
   }
+
+  const bindCursorPad = (direction: CursorDirection) => ({
+    onPointerDown: (event: PointerEvent) => {
+      event.preventDefault()
+      startCursorRepeat(direction)
+    },
+    onPointerUp: stopCursorRepeat,
+    onPointerLeave: stopCursorRepeat,
+    onPointerCancel: stopCursorRepeat,
+    onContextMenu: (event: PointerEvent) => event.preventDefault(),
+  })
 
   useEffect(() => {
     return () => {
@@ -919,7 +1023,54 @@ export default function App() {
         src={embedUrl}
         onLoad={() => setRunnerReady(true)}
       />
-      <div ref={containerRef} className="editor" />
+      <div className="editor-shell">
+        <div ref={containerRef} className="editor" />
+        {arrowKeysVisible ? (
+          <div
+            className={`cursor-pad cursor-pad-${arrowKeysPlacement}`}
+            aria-label="Cursor keys"
+          >
+            <div className="cursor-pad-grid">
+              <button
+                type="button"
+                className="cursor-pad-button cursor-pad-up"
+                tabIndex={-1}
+                aria-label="Move cursor up"
+                {...bindCursorPad('up')}
+              >
+                <FiChevronUp size={20} />
+              </button>
+              <button
+                type="button"
+                className="cursor-pad-button cursor-pad-left"
+                tabIndex={-1}
+                aria-label="Move cursor left"
+                {...bindCursorPad('left')}
+              >
+                <FiChevronLeft size={20} />
+              </button>
+              <button
+                type="button"
+                className="cursor-pad-button cursor-pad-down"
+                tabIndex={-1}
+                aria-label="Move cursor down"
+                {...bindCursorPad('down')}
+              >
+                <FiChevronDown size={20} />
+              </button>
+              <button
+                type="button"
+                className="cursor-pad-button cursor-pad-right"
+                tabIndex={-1}
+                aria-label="Move cursor right"
+                {...bindCursorPad('right')}
+              >
+                <FiChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div
         className={`panel-backdrop${openPanel ? ' open' : ''}`}
@@ -961,6 +1112,10 @@ export default function App() {
                 onThemeChange={setTheme}
                 onLanguageChange={setLanguage}
                 onFontSizeChange={setFontSize}
+                arrowKeysVisible={arrowKeysVisible}
+                onArrowKeysVisibleChange={setArrowKeysVisible}
+                arrowKeysPlacement={arrowKeysPlacement}
+                onArrowKeysPlacementChange={setArrowKeysPlacement}
                 onRequestClearCode={requestClearCode}
               />
             )}
@@ -1088,14 +1243,7 @@ export default function App() {
           className="strip-button"
           tabIndex={-1}
           aria-label="Move cursor up"
-          onPointerDown={(event) => {
-            event.preventDefault()
-            startCursorRepeat('up')
-          }}
-          onPointerUp={stopCursorRepeat}
-          onPointerLeave={stopCursorRepeat}
-          onPointerCancel={stopCursorRepeat}
-          onContextMenu={(event) => event.preventDefault()}
+          {...bindCursorPad('up')}
         >
           <FiChevronUp size={22} />
         </button>
@@ -1104,14 +1252,7 @@ export default function App() {
           className="strip-button"
           tabIndex={-1}
           aria-label="Move cursor down"
-          onPointerDown={(event) => {
-            event.preventDefault()
-            startCursorRepeat('down')
-          }}
-          onPointerUp={stopCursorRepeat}
-          onPointerLeave={stopCursorRepeat}
-          onPointerCancel={stopCursorRepeat}
-          onContextMenu={(event) => event.preventDefault()}
+          {...bindCursorPad('down')}
         >
           <FiChevronDown size={22} />
         </button>

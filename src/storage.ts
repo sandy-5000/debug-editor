@@ -23,6 +23,10 @@ const CODE_KEY = 'debug-editor-code'
 const THEME_KEY = 'debug-editor-theme'
 const LANGUAGE_KEY = 'debug-editor-language'
 const FONT_SIZE_KEY = 'debug-editor-font-size'
+const ARROW_KEYS_KEY = 'debug-editor-arrow-keys'
+const ARROW_KEYS_PLACEMENT_KEY = 'debug-editor-arrow-keys-placement'
+
+export type ArrowKeysPlacement = 'bottom' | 'top'
 
 export const DEFAULT_FONT_SIZE = 16
 export const MIN_FONT_SIZE = 12
@@ -79,4 +83,20 @@ export function loadFontSize() {
 
 export function saveFontSize(size: number) {
   localStorage.setItem(FONT_SIZE_KEY, String(size))
+}
+
+export function loadArrowKeysVisible() {
+  return localStorage.getItem(ARROW_KEYS_KEY) !== 'false'
+}
+
+export function saveArrowKeysVisible(visible: boolean) {
+  localStorage.setItem(ARROW_KEYS_KEY, visible ? 'true' : 'false')
+}
+
+export function loadArrowKeysPlacement(): ArrowKeysPlacement {
+  return localStorage.getItem(ARROW_KEYS_PLACEMENT_KEY) === 'top' ? 'top' : 'bottom'
+}
+
+export function saveArrowKeysPlacement(placement: ArrowKeysPlacement) {
+  localStorage.setItem(ARROW_KEYS_PLACEMENT_KEY, placement)
 }
