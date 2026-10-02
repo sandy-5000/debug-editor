@@ -27,6 +27,7 @@ const FONT_SIZE_KEY = 'debug-editor-font-size'
 const ARROW_KEYS_KEY = 'debug-editor-arrow-keys'
 const ARROW_KEYS_PLACEMENT_KEY = 'debug-editor-arrow-keys-placement'
 const ARROW_KEYS_STYLE_KEY = 'debug-editor-arrow-keys-style'
+const BLOCK_OS_KEYBOARD_KEY = 'debug-editor-block-os-keyboard'
 
 export type ArrowKeysPlacement = 'bottom' | 'top'
 export type ArrowKeysStyle = 'dpad' | 'joystick'
@@ -164,4 +165,12 @@ export function loadArrowKeysStyle(): ArrowKeysStyle {
 
 export function saveArrowKeysStyle(style: ArrowKeysStyle) {
   localStorage.setItem(ARROW_KEYS_STYLE_KEY, style)
+}
+
+export function loadBlockOsKeyboard() {
+  return localStorage.getItem(BLOCK_OS_KEYBOARD_KEY) === 'true'
+}
+
+export function saveBlockOsKeyboard(block: boolean) {
+  localStorage.setItem(BLOCK_OS_KEYBOARD_KEY, block ? 'true' : 'false')
 }

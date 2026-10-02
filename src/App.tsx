@@ -42,6 +42,7 @@ import {
   loadArrowKeysPlacement,
   loadArrowKeysStyle,
   loadArrowKeysVisible,
+  loadBlockOsKeyboard,
   loadCode,
   loadFontSize,
   loadLanguage,
@@ -50,6 +51,7 @@ import {
   MIN_FONT_SIZE,
   monacoTheme,
   saveArrowKeysPlacement,
+  saveBlockOsKeyboard,
   type ArrowKeysPlacement,
   saveCode,
   saveFontSize,
@@ -77,6 +79,7 @@ import {
   type OneCompilerCodePayload,
 } from './onecompiler.ts'
 import { prepareCppCodeForRun } from './cppRunner.ts'
+import { attachEditorOsKeyboardPolicy, applyEditorOsKeyboardPolicy } from './editorOsKeyboard.ts'
 import { formatSource } from './formatCode.ts'
 import { loadToolLayout, saveToolLayout, type ToolLayoutState } from './toolLayout.ts'
 
@@ -236,6 +239,8 @@ function PanelContent({
   onToolLayoutChange,
   arrowKeysPlacement,
   onArrowKeysPlacementChange,
+  blockOsKeyboard,
+  onBlockOsKeyboardChange,
   onRequestClearCode,
 }: {
   panel: PanelId
@@ -249,6 +254,8 @@ function PanelContent({
   onToolLayoutChange: (layout: ToolLayoutState) => void
   arrowKeysPlacement: ArrowKeysPlacement
   onArrowKeysPlacementChange: (placement: ArrowKeysPlacement) => void
+  blockOsKeyboard: boolean
+  onBlockOsKeyboardChange: (block: boolean) => void
   onRequestClearCode: () => void
 }) {
   if (panel === 'settings') {
@@ -282,6 +289,34 @@ function PanelContent({
                 ))}
               </select>
               <FiChevronDown className="settings-select-chevron" aria-hidden />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">System keyboard</span>
+            <p className="settings-row-hint">
+              {blockOsKeyboard
+                ? 'Hidden on touch devices—use Tools → PC keyboard to type.'
+                : 'Allowed—the device keyboard can open when you tap the editor.'}
+            </p>
+            <div className="settings-row-options">
+              <button
+                type="button"
+                className={`settings-visibility-toggle${blockOsKeyboard ? ' is-on' : ''}`}
+                role="switch"
+                aria-checked={blockOsKeyboard}
+                aria-label={
+                  blockOsKeyboard ? 'System keyboard blocked' : 'System keyboard allowed'
+                }
+                onClick={() => onBlockOsKeyboardChange(!blockOsKeyboard)}
+              >
+                <span className="settings-visibility-track">
+                  <span className="settings-visibility-thumb" />
+                </span>
+                <span className="settings-visibility-label">
+                  {blockOsKeyboard ? 'Blocked' : 'Allowed'}
+                </span>
+              </button>
             </div>
           </div>
         </section>
@@ -441,6 +476,9 @@ export default function App() {
   const [toolLayout, setToolLayout] = useState(() =>
     loadToolLayout(loadArrowKeysVisible(), loadArrowKeysStyle()),
   )
+  const [blockOsKeyboard, setBlockOsKeyboard] = useState(loadBlockOsKeyboard)
+  const blockOsKeyboardRef = useRef(blockOsKeyboard)
+  blockOsKeyboardRef.current = blockOsKeyboard
   const [outputOpen, setOutputOpen] = useState(false)
   const [outputText, setOutputText] = useState('Run your code to see output here.')
   const [stdin, setStdin] = useState('')
@@ -540,8 +578,13 @@ export default function App() {
     })
 
     editorRef.current = editor
+    const detachOsKeyboardPolicy = attachEditorOsKeyboardPolicy(
+      editor,
+      () => blockOsKeyboardRef.current,
+    )
 
     return () => {
+      detachOsKeyboardPolicy()
       persist.dispose()
       editorRef.current = null
       editor.dispose()
@@ -622,6 +665,14 @@ export default function App() {
   useEffect(() => {
     saveToolLayout(toolLayout)
   }, [toolLayout])
+
+  useEffect(() => {
+    saveBlockOsKeyboard(blockOsKeyboard)
+    const editor = editorRef.current
+    if (editor) {
+      applyEditorOsKeyboardPolicy(editor, blockOsKeyboard)
+    }
+  }, [blockOsKeyboard])
 
   const focusEditor = () => {
     editorRef.current?.focus()
@@ -1224,6 +1275,8 @@ export default function App() {
                   onToolLayoutChange={setToolLayout}
                   arrowKeysPlacement={arrowKeysPlacement}
                   onArrowKeysPlacementChange={setArrowKeysPlacement}
+                  blockOsKeyboard={blockOsKeyboard}
+                  onBlockOsKeyboardChange={setBlockOsKeyboard}
                   onRequestClearCode={requestClearCode}
                 />
               )}
