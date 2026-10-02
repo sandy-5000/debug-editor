@@ -1,6 +1,11 @@
 import type { ArrowKeysStyle } from './storage.ts'
 
-export const OVERLAY_TOOL_IDS = ['arrow-pad', 'joystick', 'on-screen-keyboard'] as const
+export const OVERLAY_TOOL_IDS = [
+  'arrow-pad',
+  'arrow-horizontal',
+  'joystick',
+  'on-screen-keyboard',
+] as const
 
 export type OverlayToolId = (typeof OVERLAY_TOOL_IDS)[number]
 
@@ -14,12 +19,14 @@ const STORAGE_KEY = 'debug-editor-tool-layout'
 
 export const OVERLAY_TOOL_LABELS: Record<OverlayToolId, string> = {
   'arrow-pad': 'Arrow pad',
+  'arrow-horizontal': 'Left / right arrows',
   joystick: 'Joystick',
   'on-screen-keyboard': 'PC keyboard',
 }
 
 const DEFAULT_VISIBILITY: Record<OverlayToolId, boolean> = {
   'arrow-pad': true,
+  'arrow-horizontal': false,
   joystick: false,
   'on-screen-keyboard': false,
 }

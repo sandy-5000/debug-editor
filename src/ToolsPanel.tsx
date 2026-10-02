@@ -31,11 +31,24 @@ function ToolPreview({ id }: { id: OverlayToolId }) {
     )
   }
 
+  if (id === 'arrow-horizontal') {
+    return (
+      <span className="tools-preview tools-preview-horizontal" aria-hidden>
+        <span />
+        <span />
+      </span>
+    )
+  }
+
   if (id === 'joystick') {
     return <span className="tools-preview tools-preview-joystick" aria-hidden />
   }
 
-  return <span className="tools-preview tools-preview-keyboard" aria-hidden>⌨</span>
+  if (id === 'on-screen-keyboard') {
+    return <span className="tools-preview tools-preview-keyboard" aria-hidden>⌨</span>
+  }
+
+  return <span className="tools-preview" aria-hidden />
 }
 
 type ToolsPanelProps = {
@@ -77,7 +90,7 @@ export function ToolsPanel({
     <div className="tools-panel">
       <h2>Tools</h2>
       <p className="settings-row-hint">
-        Touch helpers on the editor: arrow pad, joystick, and a symbol keyboard. Lock the layout to
+        Touch helpers on the editor: arrow pads, joystick, and PC keyboard. Lock the layout to
         keep the current order and visibility.
       </p>
 

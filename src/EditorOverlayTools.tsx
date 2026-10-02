@@ -80,6 +80,31 @@ function renderTool(
           </div>
         </div>
       )
+    case 'arrow-horizontal':
+      return (
+        <div key={id} className="editor-tool editor-tool-horizontal-pad">
+          <div className="cursor-pad-horizontal">
+            <button
+              type="button"
+              className="cursor-pad-button"
+              tabIndex={-1}
+              aria-label="Move cursor left"
+              {...props.bindCursorPad('left')}
+            >
+              <FiChevronLeft size={30} aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="cursor-pad-button"
+              tabIndex={-1}
+              aria-label="Move cursor right"
+              {...props.bindCursorPad('right')}
+            >
+              <FiChevronRight size={30} aria-hidden />
+            </button>
+          </div>
+        </div>
+      )
     case 'joystick':
       return (
         <div key={id} className="editor-tool editor-tool-joystick">

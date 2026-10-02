@@ -742,6 +742,24 @@ export default function App() {
     onContextMenu: (event: MouseEvent<HTMLButtonElement>) => event.preventDefault(),
   })
 
+  const insertTab = () => {
+    const editor = editorRef.current
+    if (!editor) {
+      return
+    }
+
+    editor.focus()
+    editor.trigger('keyboard', 'tab', null)
+  }
+
+  const bindTabKey = () => ({
+    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      insertTab()
+    },
+    onContextMenu: (event: MouseEvent<HTMLButtonElement>) => event.preventDefault(),
+  })
+
   useEffect(() => {
     return () => {
       stopCursorRepeat()
@@ -1149,6 +1167,15 @@ export default function App() {
             {...bindCursorPad('down')}
           >
             <FiChevronDown aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="strip-button strip-button-tab"
+            tabIndex={-1}
+            aria-label="Tab"
+            {...bindTabKey()}
+          >
+            <span className="strip-button-tab-label" aria-hidden>Tab</span>
           </button>
           <div className="strip-divider" />
           <button

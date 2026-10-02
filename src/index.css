@@ -190,6 +190,23 @@ body,
   pointer-events: auto;
 }
 
+.cursor-pad-horizontal {
+  --cursor-pad-key-size: 66px;
+  display: grid;
+  grid-template-columns: repeat(2, var(--cursor-pad-key-size));
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--chrome) 92%, transparent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.cursor-pad-horizontal .cursor-pad-button {
+  width: var(--cursor-pad-key-size);
+  height: var(--cursor-pad-key-size);
+}
+
 .cursor-pad-button {
   display: grid;
   place-items: center;
@@ -327,6 +344,12 @@ body,
   width: var(--strip-icon-size);
   height: var(--strip-icon-size);
   flex-shrink: 0;
+}
+
+.strip-button-tab-label {
+  font: 700 11px/1 system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  color: inherit;
 }
 
 .strip-divider {
@@ -1093,6 +1116,20 @@ body,
 .tools-preview-pad-mid span {
   width: 8px;
   height: 8px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+
+.tools-preview-horizontal {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.tools-preview-horizontal span {
+  width: 12px;
+  height: 10px;
   border-radius: 2px;
   background: var(--muted);
 }
