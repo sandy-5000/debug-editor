@@ -13,8 +13,6 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiChevronDown,
-  FiChevronLeft,
-  FiChevronRight,
   FiChevronUp,
   FiCopy,
   FiFolder,
@@ -27,6 +25,7 @@ import {
   FiSettings,
   FiSun,
   FiTerminal,
+  FiTool,
   FiTrash2,
   FiX,
 } from 'react-icons/fi'
@@ -36,7 +35,8 @@ import cssWorker from 'monaco-editor/language/css/css.worker?worker'
 import htmlWorker from 'monaco-editor/language/html/html.worker?worker'
 import jsonWorker from 'monaco-editor/language/json/json.worker?worker'
 import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
-import { CursorJoystick } from './CursorJoystick.tsx'
+import { EditorOverlayTools } from './EditorOverlayTools.tsx'
+import { ToolsPanel } from './ToolsPanel.tsx'
 import {
   LANGUAGE_OPTIONS,
   loadArrowKeysPlacement,
@@ -50,10 +50,7 @@ import {
   MIN_FONT_SIZE,
   monacoTheme,
   saveArrowKeysPlacement,
-  saveArrowKeysStyle,
-  saveArrowKeysVisible,
   type ArrowKeysPlacement,
-  type ArrowKeysStyle,
   saveCode,
   saveFontSize,
   saveLanguage,
@@ -81,6 +78,7 @@ import {
 } from './onecompiler.ts'
 import { prepareCppCodeForRun } from './cppRunner.ts'
 import { formatSource } from './formatCode.ts'
+import { loadToolLayout, saveToolLayout, type ToolLayoutState } from './toolLayout.ts'
 
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
@@ -125,11 +123,12 @@ function codeForLanguage(language: EditorLanguage) {
   return loadCode(language) ?? defaultCodeForLanguage(language)
 }
 
-type PanelId = 'templates' | 'settings' | 'files' | 'help'
+type PanelId = 'templates' | 'settings' | 'tools' | 'files' | 'help'
 
 const PANEL_ITEMS: { id: PanelId; label: string; icon: IconType }[] = [
   { id: 'templates', label: 'Templates', icon: FiLayers },
   { id: 'settings', label: 'Settings', icon: FiSettings },
+  { id: 'tools', label: 'Tools', icon: FiTool },
   { id: 'files', label: 'Files', icon: FiFolder },
   { id: 'help', label: 'Help', icon: FiHelpCircle },
 ]
@@ -233,12 +232,10 @@ function PanelContent({
   onThemeChange,
   onLanguageChange,
   onFontSizeChange,
-  arrowKeysVisible,
-  onArrowKeysVisibleChange,
+  toolLayout,
+  onToolLayoutChange,
   arrowKeysPlacement,
   onArrowKeysPlacementChange,
-  arrowKeysStyle,
-  onArrowKeysStyleChange,
   onRequestClearCode,
 }: {
   panel: PanelId
@@ -248,12 +245,10 @@ function PanelContent({
   onThemeChange: (theme: EditorTheme) => void
   onLanguageChange: (language: EditorLanguage) => void
   onFontSizeChange: (size: number) => void
-  arrowKeysVisible: boolean
-  onArrowKeysVisibleChange: (visible: boolean) => void
+  toolLayout: ToolLayoutState
+  onToolLayoutChange: (layout: ToolLayoutState) => void
   arrowKeysPlacement: ArrowKeysPlacement
   onArrowKeysPlacementChange: (placement: ArrowKeysPlacement) => void
-  arrowKeysStyle: ArrowKeysStyle
-  onArrowKeysStyleChange: (style: ArrowKeysStyle) => void
   onRequestClearCode: () => void
 }) {
   if (panel === 'settings') {
@@ -351,85 +346,6 @@ function PanelContent({
             </div>
           </div>
 
-          <div className="settings-row">
-            <span className="settings-row-label">On-screen arrow keys</span>
-            <p className="settings-row-hint">
-              {arrowKeysVisible
-                ? `${arrowKeysStyle === 'joystick' ? 'Joystick' : 'Arrow pad'} on the ${arrowKeysPlacement} right, over the minimap.`
-                : 'Off—use a keyboard or turn on for touch.'}
-            </p>
-            <div className="settings-row-options settings-arrow-controls">
-              <div className="settings-arrow-controls-row">
-                <button
-                  type="button"
-                  className={`settings-visibility-toggle${arrowKeysVisible ? ' is-on' : ''}`}
-                  role="switch"
-                  aria-checked={arrowKeysVisible}
-                  aria-label={arrowKeysVisible ? 'Arrow keys visible' : 'Arrow keys hidden'}
-                  onClick={() => onArrowKeysVisibleChange(!arrowKeysVisible)}
-                >
-                  <span className="settings-visibility-track">
-                    <span className="settings-visibility-thumb" />
-                  </span>
-                  <span className="settings-visibility-label">
-                    {arrowKeysVisible ? 'On' : 'Off'}
-                  </span>
-                </button>
-                <div
-                  className={`settings-placement-toggle${arrowKeysVisible ? '' : ' is-disabled'}`}
-                  role="group"
-                  aria-label="On-screen control style"
-                >
-                  <button
-                    type="button"
-                    className={`settings-placement-option${arrowKeysStyle === 'dpad' ? ' active' : ''}`}
-                    disabled={!arrowKeysVisible}
-                    aria-label="Arrow pad"
-                    aria-pressed={arrowKeysStyle === 'dpad'}
-                    onClick={() => onArrowKeysStyleChange('dpad')}
-                  >
-                    Pad
-                  </button>
-                  <button
-                    type="button"
-                    className={`settings-placement-option${arrowKeysStyle === 'joystick' ? ' active' : ''}`}
-                    disabled={!arrowKeysVisible}
-                    aria-label="Joystick"
-                    aria-pressed={arrowKeysStyle === 'joystick'}
-                    onClick={() => onArrowKeysStyleChange('joystick')}
-                  >
-                    Joystick
-                  </button>
-                </div>
-              </div>
-              <div
-                className={`settings-placement-toggle${arrowKeysVisible ? '' : ' is-disabled'}`}
-                role="group"
-                aria-label="Arrow keys corner"
-              >
-                <button
-                  type="button"
-                  className={`settings-placement-option${arrowKeysPlacement === 'top' ? ' active' : ''}`}
-                  disabled={!arrowKeysVisible}
-                  aria-label="Top right"
-                  aria-pressed={arrowKeysPlacement === 'top'}
-                  onClick={() => onArrowKeysPlacementChange('top')}
-                >
-                  Top
-                </button>
-                <button
-                  type="button"
-                  className={`settings-placement-option${arrowKeysPlacement === 'bottom' ? ' active' : ''}`}
-                  disabled={!arrowKeysVisible}
-                  aria-label="Bottom right"
-                  aria-pressed={arrowKeysPlacement === 'bottom'}
-                  onClick={() => onArrowKeysPlacementChange('bottom')}
-                >
-                  Bottom
-                </button>
-              </div>
-            </div>
-          </div>
         </section>
 
         <section className="settings-section settings-section-danger" aria-labelledby="settings-storage-heading">
@@ -446,6 +362,17 @@ function PanelContent({
     )
   }
 
+  if (panel === 'tools') {
+    return (
+      <ToolsPanel
+        layout={toolLayout}
+        onLayoutChange={onToolLayoutChange}
+        placement={arrowKeysPlacement}
+        onPlacementChange={onArrowKeysPlacementChange}
+      />
+    )
+  }
+
   if (panel === 'files') {
     return (
       <>
@@ -459,8 +386,8 @@ function PanelContent({
     <>
       <h2>Help</h2>
       <p>
-        Use the on-screen pad or joystick (Settings) on the editor minimap, or a keyboard, to move
-        the cursor. Format code with Shift+Alt+F (Option+Shift+F on Mac). Open Output to run code
+        Use Tools to show the arrow pad, joystick, or on-screen keyboard on the editor. Format code
+        with Shift+Alt+F (Option+Shift+F on Mac). Open Output to run code
         and see results. Templates replace the editor after you confirm.
       </p>
       <h3 className="panel-subheading">Links</h3>
@@ -510,9 +437,10 @@ export default function App() {
   const [theme, setTheme] = useState<EditorTheme>(loadTheme)
   const [language, setLanguage] = useState<EditorLanguage>(loadLanguage)
   const [fontSize, setFontSize] = useState(loadFontSize)
-  const [arrowKeysVisible, setArrowKeysVisible] = useState(loadArrowKeysVisible)
   const [arrowKeysPlacement, setArrowKeysPlacement] = useState(loadArrowKeysPlacement)
-  const [arrowKeysStyle, setArrowKeysStyle] = useState(loadArrowKeysStyle)
+  const [toolLayout, setToolLayout] = useState(() =>
+    loadToolLayout(loadArrowKeysVisible(), loadArrowKeysStyle()),
+  )
   const [outputOpen, setOutputOpen] = useState(false)
   const [outputText, setOutputText] = useState('Run your code to see output here.')
   const [stdin, setStdin] = useState('')
@@ -688,16 +616,12 @@ export default function App() {
   }, [fontSize])
 
   useEffect(() => {
-    saveArrowKeysVisible(arrowKeysVisible)
-  }, [arrowKeysVisible])
-
-  useEffect(() => {
     saveArrowKeysPlacement(arrowKeysPlacement)
   }, [arrowKeysPlacement])
 
   useEffect(() => {
-    saveArrowKeysStyle(arrowKeysStyle)
-  }, [arrowKeysStyle])
+    saveToolLayout(toolLayout)
+  }, [toolLayout])
 
   const focusEditor = () => {
     editorRef.current?.focus()
@@ -1296,12 +1220,10 @@ export default function App() {
                   onThemeChange={setTheme}
                   onLanguageChange={changeLanguage}
                   onFontSizeChange={setFontSize}
-                  arrowKeysVisible={arrowKeysVisible}
-                  onArrowKeysVisibleChange={setArrowKeysVisible}
+                  toolLayout={toolLayout}
+                  onToolLayoutChange={setToolLayout}
                   arrowKeysPlacement={arrowKeysPlacement}
                   onArrowKeysPlacementChange={setArrowKeysPlacement}
-                  arrowKeysStyle={arrowKeysStyle}
-                  onArrowKeysStyleChange={setArrowKeysStyle}
                   onRequestClearCode={requestClearCode}
                 />
               )}
@@ -1312,55 +1234,14 @@ export default function App() {
 
       <div className="editor-shell">
         <div ref={containerRef} className="editor" />
-        {arrowKeysVisible ? (
-          <div
-            className={`cursor-pad cursor-pad-${arrowKeysPlacement}`}
-            aria-label="Cursor keys"
-          >
-            {arrowKeysStyle === 'joystick' ? (
-              <CursorJoystick startRepeat={startCursorRepeat} stopRepeat={stopCursorRepeat} />
-            ) : (
-              <div className="cursor-pad-grid">
-                <button
-                  type="button"
-                  className="cursor-pad-button cursor-pad-up"
-                  tabIndex={-1}
-                  aria-label="Move cursor up"
-                  {...bindCursorPad('up')}
-                >
-                  <FiChevronUp size={30} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="cursor-pad-button cursor-pad-left"
-                  tabIndex={-1}
-                  aria-label="Move cursor left"
-                  {...bindCursorPad('left')}
-                >
-                  <FiChevronLeft size={30} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="cursor-pad-button cursor-pad-down"
-                  tabIndex={-1}
-                  aria-label="Move cursor down"
-                  {...bindCursorPad('down')}
-                >
-                  <FiChevronDown size={30} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="cursor-pad-button cursor-pad-right"
-                  tabIndex={-1}
-                  aria-label="Move cursor right"
-                  {...bindCursorPad('right')}
-                >
-                  <FiChevronRight size={30} aria-hidden />
-                </button>
-              </div>
-            )}
-          </div>
-        ) : null}
+        <EditorOverlayTools
+          layout={toolLayout}
+          placement={arrowKeysPlacement}
+          getEditor={() => editorRef.current}
+          startCursorRepeat={startCursorRepeat}
+          stopCursorRepeat={stopCursorRepeat}
+          bindCursorPad={bindCursorPad}
+        />
       </div>
 
       {pendingClear ? (
