@@ -20,7 +20,6 @@ import {
   FiFolder,
   FiHelpCircle,
   FiLayers,
-  FiLink,
   FiMinus,
   FiPlay,
   FiPlus,
@@ -126,12 +125,11 @@ function codeForLanguage(language: EditorLanguage) {
   return loadCode(language) ?? defaultCodeForLanguage(language)
 }
 
-type PanelId = 'templates' | 'settings' | 'links' | 'files' | 'help'
+type PanelId = 'templates' | 'settings' | 'files' | 'help'
 
 const PANEL_ITEMS: { id: PanelId; label: string; icon: IconType }[] = [
   { id: 'templates', label: 'Templates', icon: FiLayers },
   { id: 'settings', label: 'Settings', icon: FiSettings },
-  { id: 'links', label: 'Links', icon: FiLink },
   { id: 'files', label: 'Files', icon: FiFolder },
   { id: 'help', label: 'Help', icon: FiHelpCircle },
 ]
@@ -448,31 +446,6 @@ function PanelContent({
     )
   }
 
-  if (panel === 'links') {
-    return (
-      <>
-        <h2>Links</h2>
-        <ul className="panel-links">
-          <li>
-            <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noreferrer">
-              Monaco Editor
-            </a>
-          </li>
-          <li>
-            <a href="https://en.cppreference.com/w/" target="_blank" rel="noreferrer">
-              C++ reference
-            </a>
-          </li>
-          <li>
-            <a href="https://onecompiler.com/apis/embed-editor" target="_blank" rel="noreferrer">
-              OneCompiler embed API
-            </a>
-          </li>
-        </ul>
-      </>
-    )
-  }
-
   if (panel === 'files') {
     return (
       <>
@@ -487,10 +460,27 @@ function PanelContent({
       <h2>Help</h2>
       <p>
         Use the on-screen pad or joystick (Settings) on the editor minimap, or a keyboard, to move
-        the cursor. Format
-        code from the sidebar or with Shift+Alt+F (Option+Shift+F on Mac). Open Output to run code
+        the cursor. Format code with Shift+Alt+F (Option+Shift+F on Mac). Open Output to run code
         and see results. Templates replace the editor after you confirm.
       </p>
+      <h3 className="panel-subheading">Links</h3>
+      <ul className="panel-links">
+        <li>
+          <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noreferrer">
+            Monaco Editor
+          </a>
+        </li>
+        <li>
+          <a href="https://en.cppreference.com/w/" target="_blank" rel="noreferrer">
+            C++ reference
+          </a>
+        </li>
+        <li>
+          <a href="https://onecompiler.com/apis/embed-editor" target="_blank" rel="noreferrer">
+            OneCompiler embed API
+          </a>
+        </li>
+      </ul>
     </>
   )
 }
@@ -1105,8 +1095,10 @@ export default function App() {
     }
   }
 
+  const sideRailOpen = outputOpen || openPanel !== null
+
   return (
-    <div className="page" data-theme={theme}>
+    <div className="page" data-theme={theme} data-side-rail-open={sideRailOpen || undefined}>
       <div
         className={`app-toast${toast ? ' visible' : ''}`}
         role="status"
@@ -1162,6 +1154,162 @@ export default function App() {
         src={embedUrl}
         onLoad={() => setRunnerReady(true)}
       />
+
+      <div className="app-shell-left">
+        <aside className="options-strip" aria-label="Options">
+          <button
+            type="button"
+            className="strip-button"
+            tabIndex={-1}
+            aria-label="Move cursor up"
+            {...bindCursorPad('up')}
+          >
+            <FiChevronUp aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="strip-button"
+            tabIndex={-1}
+            aria-label="Move cursor down"
+            {...bindCursorPad('down')}
+          >
+            <FiChevronDown aria-hidden />
+          </button>
+          <div className="strip-divider" />
+          <button
+            type="button"
+            className={`strip-button${outputOpen ? ' active' : ''}`}
+            aria-label="Output"
+            aria-expanded={outputOpen}
+            onClick={toggleOutput}
+          >
+            <FiTerminal aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="strip-button"
+            aria-label="Copy code"
+            onClick={copyEditorCode}
+          >
+            <FiCopy aria-hidden />
+          </button>
+          <div className="strip-divider" />
+          {PANEL_ITEMS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`strip-button${openPanel === id ? ' active' : ''}`}
+              aria-label={label}
+              aria-expanded={openPanel === id}
+              onClick={() => togglePanel(id)}
+            >
+              <Icon aria-hidden />
+            </button>
+          ))}
+        </aside>
+
+        <div
+          className={`side-rail${sideRailOpen ? ' is-open' : ''}`}
+          aria-hidden={!sideRailOpen}
+        >
+          {outputOpen ? (
+            <aside
+              className="side-rail-panel output-panel"
+              role="region"
+              aria-labelledby="output-title"
+            >
+              <button
+                type="button"
+                className="panel-close"
+                onClick={() => setOutputOpen(false)}
+                aria-label="Close output"
+              >
+                <FiX size={18} />
+              </button>
+              <h2 id="output-title">Output</h2>
+              <p className="output-hint">
+                Code runs on OneCompiler in the background. Standard input is injected for C++ only
+                (your <code>main</code> is renamed to <code>user_main</code>).
+              </p>
+              <label className="theme-label">
+                Standard input (C++ only)
+                <textarea
+                  className="output-stdin"
+                  value={stdin}
+                  disabled={language !== 'cpp'}
+                  onChange={(event) => setStdin(event.target.value)}
+                  placeholder={
+                    language === 'cpp'
+                      ? 'Text fed to cin (newlines and spaces preserved)'
+                      : 'Not used for this language'
+                  }
+                  rows={9}
+                />
+              </label>
+              <pre className="output-pre">{outputText}</pre>
+              <div className="confirm-actions output-actions">
+                <button type="button" className="confirm-button cancel" onClick={() => setOutputOpen(false)}>
+                  Close
+                </button>
+                {running ? (
+                  <button type="button" className="confirm-button cancel-run" onClick={cancelRun}>
+                    Cancel run
+                  </button>
+                ) : (
+                  <button type="button" className="confirm-button replace" onClick={runCode}>
+                    <FiPlay size={16} />
+                    Run
+                  </button>
+                )}
+              </div>
+            </aside>
+          ) : null}
+          {openPanel && !outputOpen ? (
+            <aside
+              className="side-rail-panel"
+              role="region"
+              aria-label={PANEL_ITEMS.find((item) => item.id === openPanel)?.label}
+            >
+              <button
+                type="button"
+                className="panel-close"
+                onClick={() => setOpenPanel(null)}
+                aria-label="Close panel"
+              >
+                <FiX size={18} />
+              </button>
+              {openPanel === 'templates' ? (
+                <TemplatesPanel
+                  templates={templates}
+                  applyingId={applyingId}
+                  status={templateStatus}
+                  onAdd={addTemplate}
+                  onRemove={removeTemplate}
+                  onApply={requestApplyTemplate}
+                />
+              ) : (
+                <PanelContent
+                  panel={openPanel}
+                  theme={theme}
+                  language={language}
+                  fontSize={fontSize}
+                  onThemeChange={setTheme}
+                  onLanguageChange={changeLanguage}
+                  onFontSizeChange={setFontSize}
+                  arrowKeysVisible={arrowKeysVisible}
+                  onArrowKeysVisibleChange={setArrowKeysVisible}
+                  arrowKeysPlacement={arrowKeysPlacement}
+                  onArrowKeysPlacementChange={setArrowKeysPlacement}
+                  arrowKeysStyle={arrowKeysStyle}
+                  onArrowKeysStyleChange={setArrowKeysStyle}
+                  onRequestClearCode={requestClearCode}
+                />
+              )}
+            </aside>
+          ) : null}
+        </div>
+      </div>
+
       <div className="editor-shell">
         <div ref={containerRef} className="editor" />
         {arrowKeysVisible ? (
@@ -1215,121 +1363,6 @@ export default function App() {
         ) : null}
       </div>
 
-      <div
-        className={`panel-backdrop${openPanel ? ' open' : ''}`}
-        onClick={() => setOpenPanel(null)}
-      />
-
-      <aside
-        className={`side-panel${openPanel ? ' open' : ''}${openPanel === 'settings' ? ' side-panel-settings' : ''}`}
-        role="dialog"
-        aria-modal={openPanel ? true : undefined}
-        aria-hidden={!openPanel}
-        aria-label={openPanel ? PANEL_ITEMS.find((item) => item.id === openPanel)?.label : 'Panel'}
-      >
-        {openPanel ? (
-          <>
-            <button
-              type="button"
-              className="panel-close"
-              onClick={() => setOpenPanel(null)}
-              aria-label="Close panel"
-            >
-              <FiX size={18} />
-            </button>
-            {openPanel === 'templates' ? (
-              <TemplatesPanel
-                templates={templates}
-                applyingId={applyingId}
-                status={templateStatus}
-                onAdd={addTemplate}
-                onRemove={removeTemplate}
-                onApply={requestApplyTemplate}
-              />
-            ) : (
-              <PanelContent
-                panel={openPanel}
-                theme={theme}
-                language={language}
-                fontSize={fontSize}
-                onThemeChange={setTheme}
-                onLanguageChange={changeLanguage}
-                onFontSizeChange={setFontSize}
-                arrowKeysVisible={arrowKeysVisible}
-                onArrowKeysVisibleChange={setArrowKeysVisible}
-                arrowKeysPlacement={arrowKeysPlacement}
-                onArrowKeysPlacementChange={setArrowKeysPlacement}
-                arrowKeysStyle={arrowKeysStyle}
-                onArrowKeysStyleChange={setArrowKeysStyle}
-                onRequestClearCode={requestClearCode}
-              />
-            )}
-          </>
-        ) : null}
-      </aside>
-
-      <div
-        className={`output-backdrop${outputOpen ? ' open' : ''}`}
-        onClick={() => setOutputOpen(false)}
-      />
-
-      <aside
-        className={`output-panel${outputOpen ? ' open' : ''}`}
-        role="dialog"
-        aria-modal={outputOpen ? true : undefined}
-        aria-hidden={!outputOpen}
-        aria-labelledby="output-title"
-      >
-        {outputOpen ? (
-          <>
-            <button
-              type="button"
-              className="panel-close"
-              onClick={() => setOutputOpen(false)}
-              aria-label="Close output"
-            >
-              <FiX size={18} />
-            </button>
-            <h2 id="output-title">Output</h2>
-            <p className="output-hint">
-              Code runs on OneCompiler in the background. Standard input is injected for C++ only
-              (your <code>main</code> is renamed to <code>user_main</code>).
-            </p>
-            <label className="theme-label">
-              Standard input (C++ only)
-              <textarea
-                className="output-stdin"
-                value={stdin}
-                disabled={language !== 'cpp'}
-                onChange={(event) => setStdin(event.target.value)}
-                placeholder={
-                  language === 'cpp'
-                    ? 'Text fed to cin (newlines and spaces preserved)'
-                    : 'Not used for this language'
-                }
-                rows={9}
-              />
-            </label>
-            <pre className="output-pre">{outputText}</pre>
-            <div className="confirm-actions output-actions">
-              <button type="button" className="confirm-button cancel" onClick={() => setOutputOpen(false)}>
-                Close
-              </button>
-              {running ? (
-                <button type="button" className="confirm-button cancel-run" onClick={cancelRun}>
-                  Cancel run
-                </button>
-              ) : (
-                <button type="button" className="confirm-button replace" onClick={runCode}>
-                  <FiPlay size={16} />
-                  Run
-                </button>
-              )}
-            </div>
-          </>
-        ) : null}
-      </aside>
-
       {pendingClear ? (
         <div className="confirm-backdrop" onClick={cancelClearCode}>
           <div
@@ -1381,58 +1414,6 @@ export default function App() {
           </div>
         </div>
       ) : null}
-
-      <aside className="options-strip" aria-label="Options">
-        <button
-          type="button"
-          className="strip-button"
-          tabIndex={-1}
-          aria-label="Move cursor up"
-          {...bindCursorPad('up')}
-        >
-          <FiChevronUp size={22} />
-        </button>
-        <button
-          type="button"
-          className="strip-button"
-          tabIndex={-1}
-          aria-label="Move cursor down"
-          {...bindCursorPad('down')}
-        >
-          <FiChevronDown size={22} />
-        </button>
-        <div className="strip-divider" />
-        <button
-          type="button"
-          className={`strip-button${outputOpen ? ' active' : ''}`}
-          aria-label="Output"
-          aria-expanded={outputOpen}
-          onClick={toggleOutput}
-        >
-          <FiTerminal size={20} />
-        </button>
-        <button
-          type="button"
-          className="strip-button"
-          aria-label="Copy code"
-          onClick={copyEditorCode}
-        >
-          <FiCopy size={20} />
-        </button>
-        <div className="strip-divider" />
-        {PANEL_ITEMS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={`strip-button${openPanel === id ? ' active' : ''}`}
-            aria-label={label}
-            aria-expanded={openPanel === id}
-            onClick={() => togglePanel(id)}
-          >
-            <Icon size={20} />
-          </button>
-        ))}
-      </aside>
     </div>
   )
 }
